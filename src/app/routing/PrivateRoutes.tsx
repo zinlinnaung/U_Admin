@@ -21,18 +21,18 @@ const PrivateRoutes = () => {
   const UsersPage = lazy(
     () => import("../modules/apps/user-management/UsersPage")
   );
-  const RolesPage = lazy(
-    () => import("../modules/apps/role-and-permission/RolePage")
-  );
+  const CoursePage = lazy(() => import("../modules/apps/courses/CoursePage")); // ✅ ADD THIS
 
   return (
     <Routes>
       <Route element={<MasterLayout />}>
-        {/* Redirect to Dashboard after success login/registartion */}
+        {/* Redirect to Dashboard after success login/registration */}
         <Route path="auth/*" element={<Navigate to="/dashboard" />} />
+
         {/* Pages */}
         <Route path="dashboard" element={<DashboardWrapper />} />
         <Route path="builder" element={<BuilderPageWrapper />} />
+
         {/* Lazy Modules */}
         <Route
           path="crafted/pages/profile/*"
@@ -82,6 +82,7 @@ const PrivateRoutes = () => {
           path="apps/user-management/students"
           element={<StudentsListWrapper />}
         />
+
         <Route
           path="apps/student"
           element={
@@ -91,15 +92,6 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path="apps/user-management/roles/*"
-          element={
-            <SuspensedView>
-              <RolesPage />
-            </SuspensedView>
-          }
-        />
-
-        <Route
           path="apps/user"
           element={
             <SuspensedView>
@@ -107,6 +99,17 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+
+        {/* ✅ NEW COURSE PAGE */}
+        <Route
+          path="apps/course"
+          element={
+            <SuspensedView>
+              <CoursePage />
+            </SuspensedView>
+          }
+        />
+
         {/* Page Not Found */}
         <Route path="*" element={<Navigate to="/error/404" />} />
       </Route>

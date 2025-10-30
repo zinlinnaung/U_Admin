@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3081:3081"
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge

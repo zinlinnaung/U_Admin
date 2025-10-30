@@ -21,6 +21,14 @@ export function AsideMenuMain() {
         bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
         className="py-2"
       /> */}
+      <AsideMenuItem
+        to="/apps/course"
+        title="Courses"
+        fontIcon="bi-mortarboard fs-2"
+        bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
+        className="py-2"
+      />
+
       <AsideMenuItemWithSubMain
         to="/crafted/pages"
         title="Users"
