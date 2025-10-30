@@ -7,7 +7,6 @@ export default defineConfig({
   server: {
     port: 3081,
   },
-  base: "/admin/",
   preview: {
     allowedHosts: ["mypadmin.bitmyanmar.info"], // Add your allowed host here
   },
