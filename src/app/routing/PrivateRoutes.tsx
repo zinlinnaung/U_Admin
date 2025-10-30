@@ -18,9 +18,9 @@ const PrivateRoutes = () => {
   const StudentPage = lazy(
     () => import("../modules/apps/student/StudentsPage")
   );
-  const UsersPage = lazy(
-    () => import("../modules/apps/user-management/UsersPage")
-  );
+  // const UsersPage = lazy(
+  //   () => import("../modules/apps/user-management/UsersPage")
+  // );
   const CoursePage = lazy(() => import("../modules/apps/courses/CoursePage")); // ✅ ADD THIS
 
   return (
@@ -91,14 +91,14 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
-        <Route
+        {/* <Route
           path="apps/user"
           element={
             <SuspensedView>
               <UsersPage />
             </SuspensedView>
           }
-        />
+        /> */}
 
         {/* ✅ NEW COURSE PAGE */}
         <Route
