@@ -3,7 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # No ports mapping - container will only be accessible internally
+    ports:
+      - "127.0.0.1:3081:80"  # Only bind to localhost, port 3081
     networks:
       - app_network
 
