@@ -3,12 +3,12 @@ import react from "@vitejs/plugin-react-swc";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/", // ✅ important for Vercel
+  base: "/admin/", // ✅ ensures correct asset paths
   server: {
     port: 3081,
   },
   preview: {
-    allowedHosts: ["mypadmin.bitmyanmar.info"],
+    allowedHosts: ["mypadmin.bitmyanmar.info"], // ✅ your domain
   },
   build: {
     chunkSizeWarningLimit: 3000,
