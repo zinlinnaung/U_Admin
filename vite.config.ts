@@ -3,12 +3,12 @@ import react from "@vitejs/plugin-react-swc";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/admin/", // ✅ ensures correct asset paths
+  base: "/", // ✅ must be "/" when app is hosted at the root
   server: {
     port: 3081,
   },
   preview: {
-    allowedHosts: ["mypadmin.bitmyanmar.info"], // ✅ your domain
+    allowedHosts: ["mypadmin.bitmyanmar.info"],
   },
   build: {
     chunkSizeWarningLimit: 3000,
