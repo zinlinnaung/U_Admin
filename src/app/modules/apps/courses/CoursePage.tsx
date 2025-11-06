@@ -1,215 +1,252 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useState, useEffect, useMemo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
+  getSortedRowModel,
   flexRender,
   ColumnDef,
   Row,
+  SortingState,
 } from "@tanstack/react-table";
 import { KTCard, KTCardBody, KTSVG } from "../../../../_metronic/helpers";
-import clsx from "clsx";
 import { Modal } from "react-bootstrap";
-import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { CourseActionsDropdown } from "./CourseActionsDropdown";
+import { Editor } from "@tinymce/tinymce-react";
 
-const API_URL = import.meta.env.VITE_APP_THEME_API_URL;
-const COURSE_URL = `${API_URL}/courses`;
-
+// ----------------------
+// TYPES
+// ----------------------
 type Course = {
   id?: number;
-  title: string;
-  instructor: string;
-  duration: string;
-  price: number;
+  fullName: string;
+  shortName: string;
+  category: string;
+  overview?: string;
+  image?: string;
+  format?: string;
+  announcements?: number;
+  showGradebook?: boolean;
+  showReports?: boolean;
+  showDates?: boolean;
+  summary?: string;
   createdAt?: string;
+  updatedAt?: string;
 };
 
-// --- Mock data ---
+// ----------------------
+// MOCK DATA
+// ----------------------
 const mockCourses: Course[] = [
   {
     id: 1,
-    title: "Introduction to JavaScript",
-    instructor: "John Smith",
-    duration: "3 Months",
-    price: 120,
-    createdAt: "2025-01-01",
+    fullName: "Introduction to Digital Literacy",
+    shortName: "DIGLIT101",
+    category: "Digital Literacy",
+    overview: "<p>This course introduces basic digital skills.</p>",
+    format: "Custom sections",
+    announcements: 5,
+    showGradebook: true,
+    showReports: false,
+    showDates: true,
+    summary: "A beginner-friendly introduction to digital skills.",
+    createdAt: "2024-09-01",
+    updatedAt: "2024-09-05",
   },
   {
     id: 2,
-    title: "Advanced React Development",
-    instructor: "Jane Doe",
-    duration: "2 Months",
-    price: 180,
-    createdAt: "2025-02-15",
+    fullName: "Web Development Fundamentals",
+    shortName: "WEBDEV101",
+    category: "Web Development",
+    overview: "<p>Learn the basics of HTML, CSS, and JavaScript.</p>",
+    format: "Custom sections",
+    announcements: 5,
+    showGradebook: true,
+    showReports: false,
+    showDates: true,
+    summary: "Build and style your first web pages.",
+    createdAt: "2024-09-10",
+    updatedAt: "2024-09-12",
   },
   {
     id: 3,
-    title: "Fullstack with Node.js",
-    instructor: "Michael Brown",
-    duration: "4 Months",
-    price: 250,
-    createdAt: "2025-03-10",
-  },
-  {
-    id: 4,
-    title: "UI/UX Design Fundamentals",
-    instructor: "Emily White",
-    duration: "1.5 Months",
-    price: 90,
-    createdAt: "2025-04-05",
-  },
-  {
-    id: 5,
-    title: "Python for Data Science",
-    instructor: "David Green",
-    duration: "3 Months",
-    price: 200,
-    createdAt: "2025-05-20",
+    fullName: "Advanced React Techniques",
+    shortName: "REACT301",
+    category: "Frontend",
+    overview: "<p>Dive deep into React hooks, context, and performance.</p>",
+    format: "Custom sections",
+    announcements: 5,
+    showGradebook: true,
+    showReports: true,
+    showDates: true,
+    summary: "Master React with hands-on advanced concepts.",
+    createdAt: "2024-09-15",
+    updatedAt: "2024-09-20",
   },
 ];
 
+// ----------------------
+// MAIN COMPONENT
+// ----------------------
 const CoursePage: FC = () => {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [search, setSearch] = useState("");
-
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [form, setForm] = useState<Course>({
-    title: "",
-    instructor: "",
-    duration: "",
-    price: 0,
+    fullName: "",
+    shortName: "",
+    category: "Digital Literacy",
+    overview: "",
+    format: "Custom sections",
+    announcements: 5,
+    showGradebook: true,
+    showReports: false,
+    showDates: true,
+    summary: "",
   });
 
-  // Fetch courses
-  const fetchCourses = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get(COURSE_URL);
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        setCourses(res.data);
-      } else {
-        setCourses(mockCourses);
-      }
-    } catch {
-      setCourses(mockCourses);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Load mock data
   useEffect(() => {
-    fetchCourses();
+    setCourses(mockCourses);
   }, []);
 
-  // --- CRUD handlers ---
-  const handleSave = async () => {
-    try {
-      if (editingCourse?.id) {
-        await axios.put(`${COURSE_URL}/${editingCourse.id}`, form);
-      } else {
-        await axios.post(COURSE_URL, form);
-      }
-      fetchCourses();
-      handleClose();
-    } catch (err) {
-      console.warn("Mock save:", err);
-      if (editingCourse?.id) {
-        setCourses((prev) =>
-          prev.map((c) =>
-            c.id === editingCourse.id ? { ...form, id: c.id } : c
-          )
-        );
-      } else {
-        setCourses((prev) => [...prev, { ...form, id: Date.now() }]);
-      }
-      handleClose();
+  // ----------------------
+  // HANDLERS
+  // ----------------------
+  const handleSave = () => {
+    if (!form.fullName.trim() || !form.shortName.trim()) {
+      alert("Please enter course full name and short name.");
+      return;
     }
+
+    const now = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    if (editingCourse?.id) {
+      // Update existing
+      setCourses((prev) =>
+        prev.map((c) =>
+          c.id === editingCourse.id
+            ? {
+                ...form,
+                id: editingCourse.id,
+                updatedAt: now,
+                createdAt: c.createdAt,
+              }
+            : c
+        )
+      );
+    } else {
+      // Add new
+      const newCourse = {
+        ...form,
+        id: Date.now(),
+        createdAt: now,
+        updatedAt: now,
+      };
+      setCourses((prev) => [...prev, newCourse]);
+    }
+
+    handleClose();
   };
 
-  const handleEdit = (course: Course) => {
+  const handleEdit = (id?: number) => {
+    const course = courses.find((c) => c.id === id);
+    if (!course) return;
     setEditingCourse(course);
     setForm(course);
     setShowModal(true);
   };
 
-  const handleDelete = async (id?: number) => {
-    if (!id) return;
-    if (!window.confirm("Are you sure you want to delete this course?")) return;
-    try {
-      await axios.delete(`${COURSE_URL}/${id}`);
-      fetchCourses();
-    } catch {
+  const handleDelete = (id?: number) => {
+    if (window.confirm("Delete this course?")) {
       setCourses((prev) => prev.filter((c) => c.id !== id));
     }
   };
 
   const handleClose = () => {
     setEditingCourse(null);
-    setForm({ title: "", instructor: "", duration: "", price: 0 });
     setShowModal(false);
+    setForm({
+      fullName: "",
+      shortName: "",
+      category: "Digital Literacy",
+      overview: "",
+      format: "Custom sections",
+      announcements: 5,
+      showGradebook: true,
+      showReports: false,
+      showDates: true,
+      summary: "",
+    });
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  // --- Columns for React Table ---
+  const filteredData = useMemo(() => {
+    if (!search) return courses;
+    return courses.filter(
+      (c) =>
+        c.fullName.toLowerCase().includes(search.toLowerCase()) ||
+        c.category.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, courses]);
+
+  // ----------------------
+  // TABLE CONFIG
+  // ----------------------
   const columns = useMemo<ColumnDef<Course>[]>(
     () => [
-      { header: "ID", accessorKey: "id" },
-      { header: "Title", accessorKey: "title" },
-      { header: "Instructor", accessorKey: "instructor" },
-      { header: "Duration", accessorKey: "duration" },
-      { header: "Price ($)", accessorKey: "price" },
+      { header: "Course Name", accessorKey: "fullName" },
+      { header: "Short Name", accessorKey: "shortName" },
+      { header: "Category", accessorKey: "category" },
+      {
+        header: "Created Date",
+        accessorKey: "createdAt",
+        cell: ({ getValue }) => <span>{getValue<string>() || "-"}</span>,
+      },
+      {
+        header: "Updated Date",
+        accessorKey: "updatedAt",
+        cell: ({ getValue }) => <span>{getValue<string>() || "-"}</span>,
+      },
       {
         header: "Actions",
-        cell: ({ row }) => (
-          <div className="text-end">
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1"
-              onClick={() => handleEdit(row.original)}
-            >
-              <KTSVG
-                path="/media/icons/duotune/art/art005.svg"
-                className="svg-icon-3"
-              />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
-              onClick={() => handleDelete(row.original.id)}
-            >
-              <KTSVG
-                path="/media/icons/duotune/general/gen027.svg"
-                className="svg-icon-3"
-              />
-            </button>
-          </div>
+        cell: ({ row }: { row: Row<Course> }) => (
+          <CourseActionsDropdown
+            courseId={row.original.id}
+            courseTitle={row.original.fullName}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+          />
         ),
       },
     ],
     []
   );
 
-  // --- Filtering logic for search ---
-  const filteredData = useMemo(() => {
-    if (!search) return courses;
-    return courses.filter(
-      (c) =>
-        c.title.toLowerCase().includes(search.toLowerCase()) ||
-        c.instructor.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, courses]);
-
   const table = useReactTable({
     data: filteredData,
     columns,
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
+  // ----------------------
+  // RENDER
+  // ----------------------
   return (
-    <div className="m-4 bg-white p-6 rounded shadow-sm">
-      {/* Header with Search and Add button */}
+    <div
+      className="m-4 bg-white p-6 rounded shadow-sm"
+      style={{ height: "90vh" }}
+    >
+      {/* Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-5">
         <h2 className="fw-bold text-dark mb-3">Courses</h2>
         <div className="d-flex align-items-center gap-3">
@@ -238,122 +275,176 @@ const CoursePage: FC = () => {
       {/* Table */}
       <KTCard>
         <KTCardBody className="py-4">
-          {loading ? (
-            <div className="text-center py-10">
-              <div className="spinner-border text-primary" role="status" />
-            </div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer">
-                <thead>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr
-                      key={headerGroup.id}
-                      className="text-start text-muted fw-bolder fs-7 text-uppercase gs-0"
-                    >
-                      {headerGroup.headers.map((header) => (
-                        <th key={header.id}>
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                {/* Table body with black text */}
-                <tbody className="text-dark fw-semibold">
-                  {table.getRowModel().rows.length > 0 ? (
-                    table.getRowModel().rows.map((row: Row<Course>) => (
-                      <tr key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <td key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6}>
-                        <div className="text-center py-10">
-                          No courses found
-                        </div>
+          <div className="table-responsive">
+            <table className="table align-middle table-row-dashed fs-6 gy-5">
+              <thead>
+                {table.getHeaderGroups().map((hg) => (
+                  <tr
+                    key={hg.id}
+                    className="text-start text-muted fw-bolder fs-7 text-uppercase gs-0"
+                  >
+                    {hg.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        onClick={header.column.getToggleSortingHandler()}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                        {{
+                          asc: " 🔼",
+                          desc: " 🔽",
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="text-dark fw-semibold">
+                {table.getRowModel().rows.map((row) => (
+                  <tr key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </KTCardBody>
       </KTCard>
 
-      {/* Modal */}
-      <Modal show={showModal} onHide={handleClose} centered size="lg">
+      {/* Full-Screen Modal */}
+      <Modal
+        show={showModal}
+        onHide={handleClose}
+        size="xl"
+        centered
+        className="modal-fullscreen-md-down"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             {editingCourse ? "Edit Course" : "Add New Course"}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <form className="form">
-            <div className="row mb-5">
+        <Modal.Body className="py-5">
+          <div className="container">
+            <div className="row mb-4">
               <div className="col-md-6">
-                <label className="form-label">Title</label>
+                <label className="form-label required">Course full name</label>
                 <input
-                  className={clsx("form-control form-control-solid")}
-                  name="title"
-                  value={form.title}
+                  name="fullName"
+                  className="form-control form-control-solid"
+                  value={form.fullName}
                   onChange={handleChange}
-                  placeholder="Enter course title"
+                  placeholder="e.g. Introduction to Web Development"
                 />
               </div>
               <div className="col-md-6">
-                <label className="form-label">Instructor</label>
+                <label className="form-label required">Course short name</label>
                 <input
-                  className={clsx("form-control form-control-solid")}
-                  name="instructor"
-                  value={form.instructor}
-                  onChange={handleChange}
-                  placeholder="Instructor name"
-                />
-              </div>
-            </div>
-            <div className="row mb-5">
-              <div className="col-md-6">
-                <label className="form-label">Duration</label>
-                <input
-                  className={clsx("form-control form-control-solid")}
-                  name="duration"
-                  value={form.duration}
-                  onChange={handleChange}
-                  placeholder="e.g. 3 Months"
-                />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Price ($)</label>
-                <input
-                  type="number"
-                  className={clsx("form-control form-control-solid")}
-                  name="price"
-                  value={form.price}
+                  name="shortName"
+                  className="form-control form-control-solid"
+                  value={form.shortName}
                   onChange={handleChange}
                 />
               </div>
             </div>
-          </form>
+
+            <div className="row mb-4">
+              <div className="col-md-6">
+                <label className="form-label">Category</label>
+                <select
+                  name="category"
+                  className="form-select form-select-solid"
+                  value={form.category}
+                  onChange={handleChange}
+                >
+                  <option>Digital Literacy</option>
+                  <option>Web Development</option>
+                  <option>Frontend</option>
+                  <option>Backend</option>
+                  <option>Data Science</option>
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Format</label>
+                <select
+                  name="format"
+                  className="form-select form-select-solid"
+                  value={form.format}
+                  onChange={handleChange}
+                >
+                  <option>Custom sections</option>
+                  <option>Weekly format</option>
+                  <option>Topics format</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">Course overview</label>
+              <Editor
+                apiKey="659sxzprn0yjxnr8ji2pu7wj5m2neear9j51tjr63nneit6l"
+                value={form.overview}
+                onEditorChange={(v) => setForm({ ...form, overview: v })}
+                init={{
+                  height: 200,
+                  menubar: false,
+                  plugins: "link image code lists",
+                  toolbar:
+                    "undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | removeformat",
+                }}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">Course summary</label>
+              <Editor
+                apiKey="659sxzprn0yjxnr8ji2pu7wj5m2neear9j51tjr63nneit6l"
+                value={form.summary}
+                onEditorChange={(v) => setForm({ ...form, summary: v })}
+                init={{
+                  height: 200,
+                  menubar: false,
+                  plugins: "link image code lists",
+                  toolbar:
+                    "undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | removeformat",
+                }}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label">Course image</label>
+              <input
+                type="file"
+                className="form-control form-control-solid"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setForm({ ...form, image: file.name });
+                }}
+              />
+              {form.image && (
+                <div className="mt-2">
+                  <small className="text-muted">{form.image}</small>
+                </div>
+              )}
+            </div>
+          </div>
         </Modal.Body>
         <Modal.Footer>
           <button className="btn btn-light" onClick={handleClose}>
             Cancel
           </button>
           <button className="btn btn-primary" onClick={handleSave}>
-            Save Changes
+            Save Course
           </button>
         </Modal.Footer>
       </Modal>

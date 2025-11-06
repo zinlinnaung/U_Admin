@@ -22,6 +22,9 @@ const PrivateRoutes = () => {
   //   () => import("../modules/apps/user-management/UsersPage")
   // );
   const CoursePage = lazy(() => import("../modules/apps/courses/CoursePage")); // ✅ ADD THIS
+  const CourseCatagoryPage = lazy(
+    () => import("../modules/apps/courses/CourseCategoryList")
+  );
 
   return (
     <Routes>
@@ -106,6 +109,14 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <CoursePage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="apps/category"
+          element={
+            <SuspensedView>
+              <CourseCatagoryPage />
             </SuspensedView>
           }
         />
