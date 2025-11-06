@@ -244,7 +244,7 @@ const CoursePage: FC = () => {
   return (
     <div
       className="m-4 bg-white p-6 rounded shadow-sm"
-      style={{ height: "90vh" }}
+      // style={{ height: "90vh" }}
     >
       {/* Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-5">
@@ -275,7 +275,7 @@ const CoursePage: FC = () => {
       {/* Table */}
       <KTCard>
         <KTCardBody className="py-4">
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ height: "50vh" }}>
             <table className="table align-middle table-row-dashed fs-6 gy-5">
               <thead>
                 {table.getHeaderGroups().map((hg) => (
