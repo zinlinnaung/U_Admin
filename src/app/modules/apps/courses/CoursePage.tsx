@@ -12,7 +12,10 @@ import { KTCard, KTCardBody, KTSVG } from "../../../../_metronic/helpers";
 import { Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { CourseActionsDropdown } from "./CourseActionsDropdown";
-import { Editor } from "@tinymce/tinymce-react";
+// import { Editor } from "@tinymce/tinymce-react";
+import { Editor } from "react-draft-wysiwyg";
+import { EditorState } from "draft-js";
+import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 
 // ----------------------
 // TYPES
@@ -107,6 +110,7 @@ const CoursePage: FC = () => {
     showDates: true,
     summary: "",
   });
+  const [editorState, setEditorState] = useState(EditorState.createEmpty());
 
   // Load mock data
   useEffect(() => {
@@ -240,7 +244,7 @@ const CoursePage: FC = () => {
 
   // ----------------------
   // RENDER
-  // ----------------------
+  // ----------------------f
   return (
     <div
       className="m-4 bg-white p-6 rounded shadow-sm"
@@ -391,7 +395,22 @@ const CoursePage: FC = () => {
 
             <div className="mb-4">
               <label className="form-label">Course overview</label>
-              <Editor
+              <div
+                style={{
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  height: 200,
+                }}
+              >
+                <Editor
+                  editorState={editorState}
+                  toolbarClassName="toolbarClassName"
+                  wrapperClassName="wrapperClassName"
+                  editorClassName="editorClassName"
+                  onEditorStateChange={setEditorState}
+                />
+              </div>
+              {/* <Editor
                 apiKey="659sxzprn0yjxnr8ji2pu7wj5m2neear9j51tjr63nneit6l"
                 value={form.overview}
                 onEditorChange={(v) => setForm({ ...form, overview: v })}
@@ -402,12 +421,27 @@ const CoursePage: FC = () => {
                   toolbar:
                     "undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | removeformat",
                 }}
-              />
+              /> */}
             </div>
 
             <div className="mb-4">
               <label className="form-label">Course summary</label>
-              <Editor
+              <div
+                style={{
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  height: 200,
+                }}
+              >
+                <Editor
+                  editorState={editorState}
+                  toolbarClassName="toolbarClassName"
+                  wrapperClassName="wrapperClassName"
+                  editorClassName="editorClassName"
+                  onEditorStateChange={setEditorState}
+                />
+              </div>
+              {/* <Editor
                 apiKey="659sxzprn0yjxnr8ji2pu7wj5m2neear9j51tjr63nneit6l"
                 value={form.summary}
                 onEditorChange={(v) => setForm({ ...form, summary: v })}
@@ -418,7 +452,7 @@ const CoursePage: FC = () => {
                   toolbar:
                     "undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | removeformat",
                 }}
-              />
+              /> */}
             </div>
 
             <div className="mb-4">
