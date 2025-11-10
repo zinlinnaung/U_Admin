@@ -33,7 +33,7 @@ export function AsideMenuMain() {
         to="/crafted/pages"
         title="Users"
         fontIcon="bi-file-text"
-        bsTitle="Crafted"
+        bsTitle="Users"
       >
         {/* <AsideMenuItemWithSub
           to="/crafted/pages/profile"
@@ -195,6 +195,13 @@ export function AsideMenuMain() {
           title="Roles"
           hasBullet={true}
           bsTitle="User management"
+        />
+
+        <AsideMenuItem
+          to="/apps/user-management/permissions"
+          title="Permissions"
+          hasBullet={true}
+          bsTitle="Permissions"
         />
       </AsideMenuItemWithSubMain>
 

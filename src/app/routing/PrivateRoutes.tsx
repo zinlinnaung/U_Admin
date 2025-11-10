@@ -9,6 +9,7 @@ import BuilderPageWrapper from "../pages/layout-builder/BuilderPageWrapper";
 import { InstructorsListWrapper } from "../modules/apps/user-management/users-list/InstructorsList";
 import { StudentsListWrapper } from "../modules/apps/student/student-list/StudentsList";
 import RolePage from "../modules/roles/RolePage";
+import PermissionPage from "../modules/roles/PermissionPage";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -87,6 +88,10 @@ const PrivateRoutes = () => {
           element={<StudentsListWrapper />}
         />
         <Route path="apps/user-management/roles" element={<RolePage />} />
+        <Route
+          path="apps/user-management/permissions"
+          element={<PermissionPage />}
+        />
 
         <Route
           path="apps/student"
