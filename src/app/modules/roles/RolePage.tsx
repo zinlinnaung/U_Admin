@@ -7,44 +7,95 @@ interface Permission {
   description: string;
 }
 
+interface PermissionGroup {
+  type: string;
+  permissions: Permission[];
+}
+
 interface Role {
   id: number;
   name: string;
-  description: string; // ✅ Added description field
+  description: string;
   permissions: string[];
 }
 
 export function RolePage() {
-  const PERMISSIONS = [
+  // ✅ Permission groups (grouped by type)
+  const PERMISSION_GROUPS: PermissionGroup[] = [
     {
-      id: "create_course",
-      label: "Create Course",
-      description: "Can create new courses",
+      type: "Students",
+      permissions: [
+        {
+          id: "create_student",
+          label: "Create Student",
+          description: "Can create new students",
+        },
+        {
+          id: "edit_student",
+          label: "Edit Student",
+          description: "Can edit student info",
+        },
+        {
+          id: "delete_student",
+          label: "Delete Student",
+          description: "Can delete student records",
+        },
+        {
+          id: "view_student",
+          label: "View Student",
+          description: "Can view student details",
+        },
+      ],
     },
     {
-      id: "edit_course",
-      label: "Edit Course",
-      description: "Can edit existing courses",
+      type: "Instructors",
+      permissions: [
+        {
+          id: "create_instructor",
+          label: "Create Instructor",
+          description: "Can create new instructors",
+        },
+        {
+          id: "edit_instructor",
+          label: "Edit Instructor",
+          description: "Can edit instructor details",
+        },
+        {
+          id: "delete_instructor",
+          label: "Delete Instructor",
+          description: "Can delete instructors",
+        },
+        {
+          id: "view_instructor",
+          label: "View Instructor",
+          description: "Can view instructor details",
+        },
+      ],
     },
     {
-      id: "delete_course",
-      label: "Delete Course",
-      description: "Can delete courses",
-    },
-    {
-      id: "view_analytics",
-      label: "View Analytics",
-      description: "Can view course analytics",
-    },
-    {
-      id: "manage_students",
-      label: "Manage Students",
-      description: "Can manage student enrollments",
-    },
-    {
-      id: "grade_assignments",
-      label: "Grade Assignments",
-      description: "Can grade student work",
+      type: "Courses",
+      permissions: [
+        {
+          id: "create_course",
+          label: "Create Course",
+          description: "Can create new courses",
+        },
+        {
+          id: "edit_course",
+          label: "Edit Course",
+          description: "Can edit existing courses",
+        },
+        {
+          id: "delete_course",
+          label: "Delete Course",
+          description: "Can delete courses",
+        },
+        {
+          id: "view_course",
+          label: "View Course",
+          description: "Can view course content",
+        },
+      ],
     },
   ];
 
@@ -53,22 +104,30 @@ export function RolePage() {
       id: 1,
       name: "Admin",
       description: "Full access to all system features",
-      permissions: PERMISSIONS.map((p) => p.id),
+      permissions: PERMISSION_GROUPS.flatMap((g) =>
+        g.permissions.map((p) => p.id)
+      ),
     },
     {
       id: 2,
       name: "Instructor",
-      description: "Can create, edit, and grade courses",
-      permissions: ["create_course", "edit_course", "grade_assignments"],
+      description: "Can create, edit, and manage courses",
+      permissions: [
+        "create_course",
+        "edit_course",
+        "view_course",
+        "view_student",
+      ],
     },
   ]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
-  const [description, setDescription] = useState(""); // ✅ New state
+  const [description, setDescription] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
+  // ✅ Reset form state
   const resetForm = () => {
     setEditingRole(null);
     setName("");
@@ -77,11 +136,13 @@ export function RolePage() {
     setShowModal(false);
   };
 
+  // ✅ Add role
   const handleAdd = () => {
     resetForm();
     setShowModal(true);
   };
 
+  // ✅ Edit role
   const handleEdit = (role: Role) => {
     setEditingRole(role);
     setName(role.name);
@@ -90,18 +151,40 @@ export function RolePage() {
     setShowModal(true);
   };
 
+  // ✅ Delete role
   const handleDelete = (id: number) => {
     if (window.confirm("Are you sure you want to delete this role?")) {
       setRoles(roles.filter((r) => r.id !== id));
     }
   };
 
+  // ✅ Toggle individual permission
   const togglePermission = (id: string) => {
     setSelectedPermissions((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
   };
 
+  // ✅ Toggle all in a group
+  const toggleGroup = (group: PermissionGroup) => {
+    const allSelected = group.permissions.every((p) =>
+      selectedPermissions.includes(p.id)
+    );
+    if (allSelected) {
+      // Deselect all
+      setSelectedPermissions((prev) =>
+        prev.filter((p) => !group.permissions.some((gp) => gp.id === p))
+      );
+    } else {
+      // Select all
+      const newPermissions = group.permissions
+        .map((p) => p.id)
+        .filter((id) => !selectedPermissions.includes(id));
+      setSelectedPermissions((prev) => [...prev, ...newPermissions]);
+    }
+  };
+
+  // ✅ Submit form
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -141,13 +224,14 @@ export function RolePage() {
           </button>
         </div>
 
+        {/* Table */}
         <div className="card-body py-3">
           <div className="table-responsive">
             <table className="table table-row-bordered align-middle gy-4">
               <thead>
                 <tr className="fw-bold text-muted">
                   <th className="min-w-150px">Role</th>
-                  <th className="min-w-200px">Description</th> {/* ✅ Added */}
+                  <th className="min-w-200px">Description</th>
                   <th className="min-w-250px">Permissions</th>
                   <th className="text-end min-w-100px">Actions</th>
                 </tr>
@@ -166,23 +250,17 @@ export function RolePage() {
                         <span className="text-muted">No permissions</span>
                       ) : (
                         <div className="d-flex flex-wrap gap-1">
-                          {role.permissions.map((permId) => {
-                            const perm = PERMISSIONS.find(
-                              (p) => p.id === permId
-                            );
-                            return (
-                              <span
-                                key={permId}
-                                className="badge badge-light-primary"
-                              >
-                                {perm ? perm.label : permId}
-                              </span>
-                            );
-                          })}
+                          {role.permissions.map((permId) => (
+                            <span
+                              key={permId}
+                              className="badge badge-light-primary"
+                            >
+                              {permId}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </td>
-
                     <td className="text-end">
                       <button
                         className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-2"
@@ -236,6 +314,7 @@ export function RolePage() {
 
               <form onSubmit={handleSubmit}>
                 <div className="modal-body">
+                  {/* Role name */}
                   <div className="mb-5">
                     <label className="form-label fw-semibold">Role Name</label>
                     <input
@@ -248,7 +327,7 @@ export function RolePage() {
                     />
                   </div>
 
-                  {/* ✅ Description field */}
+                  {/* Description */}
                   <div className="mb-5">
                     <label className="form-label fw-semibold">
                       Role Description
@@ -262,34 +341,70 @@ export function RolePage() {
                     />
                   </div>
 
+                  {/* Grouped Permissions */}
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">
+                    <label className="form-label fw-semibold fs-5 mb-3">
                       Permissions
                     </label>
-                    <div className="row">
-                      {PERMISSIONS.map((p) => (
-                        <div key={p.id} className="col-md-6 mb-2">
-                          <div className="form-check form-check-custom form-check-solid">
+
+                    {PERMISSION_GROUPS.map((group) => {
+                      const allSelected = group.permissions.every((p) =>
+                        selectedPermissions.includes(p.id)
+                      );
+
+                      return (
+                        <div key={group.type} className="mb-5">
+                          {/* Group Header */}
+                          <div className="form-check form-check-custom form-check-solid mb-3">
                             <input
-                              className="form-check-input"
+                              className="form-check-input me-3"
                               type="checkbox"
-                              checked={selectedPermissions.includes(p.id)}
-                              onChange={() => togglePermission(p.id)}
-                              id={p.id}
+                              id={`group-${group.type}`}
+                              checked={allSelected}
+                              onChange={() => toggleGroup(group)}
                             />
-                            <label className="form-check-label" htmlFor={p.id}>
-                              <strong>{p.label}</strong>
-                              <div className="text-muted small">
-                                {p.description}
-                              </div>
+                            <label
+                              htmlFor={`group-${group.type}`}
+                              className="form-check-label fw-bold fs-6 text-dark"
+                            >
+                              {group.type}
                             </label>
                           </div>
+
+                          {/* Group Permissions */}
+                          <div className="row ms-6">
+                            {group.permissions.map((p) => (
+                              <div key={p.id} className="col-md-6 mb-3">
+                                <div className="form-check form-check-custom form-check-solid">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    checked={selectedPermissions.includes(p.id)}
+                                    onChange={() => togglePermission(p.id)}
+                                    id={p.id}
+                                  />
+                                  <label
+                                    className="form-check-label"
+                                    htmlFor={p.id}
+                                  >
+                                    <strong>{p.label}</strong>
+                                    <div className="text-muted small">
+                                      {p.description}
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="separator border-gray-300 my-4"></div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
 
+                {/* Modal footer */}
                 <div className="modal-footer">
                   <button
                     type="button"
