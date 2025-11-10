@@ -8,6 +8,7 @@ export interface Instructor {
   courseCount?: number;
   enrollmentCount?: number;
   lastLogin?: string;
+  roles?: string[];
 }
 
 export type InstructorsQueryResponse = Response<Array<Instructor>>;
@@ -20,6 +21,7 @@ export const initialInstructor: Instructor = {
   courseCount: 0,
   enrollmentCount: 0,
   lastLogin: "",
+  roles: [],
 };
 
 export interface Student {
