@@ -91,7 +91,7 @@ export const CourseActionsDropdown: React.FC<Props> = ({
           <button
             className="dropdown-item d-flex align-items-center"
             onClick={() => {
-              navigate("/apps/category");
+              navigate("/apps/sections");
               setOpen(false);
             }}
           >

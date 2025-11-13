@@ -21,13 +21,27 @@ export function AsideMenuMain() {
         bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
         className="py-2"
       /> */}
-      <AsideMenuItem
+      <AsideMenuItemWithSubMain
         to="/apps/course"
         title="Courses"
         fontIcon="bi-mortarboard fs-2"
         bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
-        className="py-2"
-      />
+        // className="py-2"
+      >
+        <AsideMenuItem
+          to="/apps/course"
+          title="Courses"
+          hasBullet={true}
+          bsTitle="User management"
+        />
+
+        <AsideMenuItem
+          to="/apps/course-category"
+          title="Courses Category"
+          hasBullet={true}
+          bsTitle="User management"
+        />
+      </AsideMenuItemWithSubMain>
 
       <AsideMenuItemWithSubMain
         to="/crafted/pages"
@@ -202,6 +216,28 @@ export function AsideMenuMain() {
           title="Permissions"
           hasBullet={true}
           bsTitle="Permissions"
+        />
+      </AsideMenuItemWithSubMain>
+      <AsideMenuItemWithSubMain
+        to="/apps/course"
+        title="Home"
+        fontIcon="bi-house-door fs-2" // 🏠 Better icon for homepage
+        bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
+      >
+        <AsideMenuItem
+          to="/apps/home/sliders"
+          title="Sliders"
+          hasBullet={true}
+          fontIcon="bi-images" // 🖼 multiple images = slider/banner
+          bsTitle="Slider Management"
+        />
+
+        <AsideMenuItem
+          to="/apps/course-category"
+          title="Home Category"
+          hasBullet={true}
+          fontIcon="bi-grid-3x3-gap" // 🗂 clean grid for category blocks
+          bsTitle="Home Category"
         />
       </AsideMenuItemWithSubMain>
 

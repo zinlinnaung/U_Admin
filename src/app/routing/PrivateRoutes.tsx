@@ -10,6 +10,8 @@ import { InstructorsListWrapper } from "../modules/apps/user-management/users-li
 import { StudentsListWrapper } from "../modules/apps/student/student-list/StudentsList";
 import RolePage from "../modules/roles/RolePage";
 import PermissionPage from "../modules/roles/PermissionPage";
+import CourseCategoryPage from "../modules/apps/courses/CourseCategoryPage";
+import SliderPage from "../modules/apps/home_page/SliderPage";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -24,7 +26,7 @@ const PrivateRoutes = () => {
   //   () => import("../modules/apps/user-management/UsersPage")
   // );
   const CoursePage = lazy(() => import("../modules/apps/courses/CoursePage")); // ✅ ADD THIS
-  const CourseCatagoryPage = lazy(
+  const CourseSection = lazy(
     () => import("../modules/apps/courses/CourseCategoryList")
   );
 
@@ -33,11 +35,9 @@ const PrivateRoutes = () => {
       <Route element={<MasterLayout />}>
         {/* Redirect to Dashboard after success login/registration */}
         <Route path="auth/*" element={<Navigate to="/dashboard" />} />
-
         {/* Pages */}
         <Route path="dashboard" element={<DashboardWrapper />} />
         <Route path="builder" element={<BuilderPageWrapper />} />
-
         {/* Lazy Modules */}
         <Route
           path="crafted/pages/profile/*"
@@ -92,7 +92,6 @@ const PrivateRoutes = () => {
           path="apps/user-management/permissions"
           element={<PermissionPage />}
         />
-
         <Route
           path="apps/student"
           element={
@@ -109,8 +108,15 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         /> */}
-
         {/* ✅ NEW COURSE PAGE */}
+        <Route
+          path="apps/course-category"
+          element={
+            <SuspensedView>
+              <CourseCategoryPage />
+            </SuspensedView>
+          }
+        />
         <Route
           path="apps/course"
           element={
@@ -120,14 +126,22 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path="apps/category"
+          path="apps/home/sliders"
           element={
             <SuspensedView>
-              <CourseCatagoryPage />
+              <SliderPage />
             </SuspensedView>
           }
         />
 
+        <Route
+          path="apps/sections"
+          element={
+            <SuspensedView>
+              <CourseSection />
+            </SuspensedView>
+          }
+        />
         {/* Page Not Found */}
         <Route path="*" element={<Navigate to="/error/404" />} />
       </Route>
