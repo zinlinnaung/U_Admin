@@ -12,6 +12,7 @@ import RolePage from "../modules/roles/RolePage";
 import PermissionPage from "../modules/roles/PermissionPage";
 import CourseCategoryPage from "../modules/apps/courses/CourseCategoryPage";
 import SliderPage from "../modules/apps/home_page/SliderPage";
+import { EditActivity } from "../modules/apps/courses/EditActivity";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -109,6 +110,15 @@ const PrivateRoutes = () => {
           }
         /> */}
         {/* ✅ NEW COURSE PAGE */}
+
+        <Route
+          path="apps/course/activity"
+          element={
+            <SuspensedView>
+              <EditActivity />
+            </SuspensedView>
+          }
+        />
         <Route
           path="apps/course-category"
           element={

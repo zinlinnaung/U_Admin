@@ -52,7 +52,6 @@ const CourseCategoryList: React.FC = () => {
     setEditingCategoryId(null);
   };
 
-  // ✅ Activity edit
   const handleActivityEdit = (id: string, name: string) => {
     setEditingActivityId(id);
     setTempTitle(name);
@@ -74,30 +73,30 @@ const CourseCategoryList: React.FC = () => {
     setEditingActivityId(null);
   };
 
-  // ✅ Add new category
   const handleAddCategory = () => {
-    const newId = `cat-${Date.now()}`;
-    const newCategory: Category = {
-      id: newId,
-      title: `New Lesson`,
-      activities: [],
-    };
-    setCategories((prev) => [...prev, newCategory]);
+    setCategories((prev) => [
+      ...prev,
+      {
+        id: `cat-${Date.now()}`,
+        title: "New Lesson",
+        activities: [],
+      },
+    ]);
   };
 
-  // ✅ Add new activity
   const handleAddActivity = (catId: string) => {
     setCategories((prev) =>
-      prev.map((cat) => {
-        if (cat.id === catId) {
-          const newActivity: Activity = {
-            id: `act-${Date.now()}`,
-            name: `New Activity`,
-          };
-          return { ...cat, activities: [...cat.activities, newActivity] };
-        }
-        return cat;
-      })
+      prev.map((cat) =>
+        cat.id === catId
+          ? {
+              ...cat,
+              activities: [
+                ...cat.activities,
+                { id: `act-${Date.now()}`, name: "New Activity" },
+              ],
+            }
+          : cat
+      )
     );
   };
 
@@ -124,27 +123,20 @@ const CourseCategoryList: React.FC = () => {
     const updated = [...categories];
 
     if (sourceCatIndex === destCatIndex) {
-      const cat = updated[sourceCatIndex];
-      const reordered = Array.from(cat.activities);
-      const [removed] = reordered.splice(source.index, 1);
-      reordered.splice(destination.index, 0, removed);
-      updated[sourceCatIndex] = { ...cat, activities: reordered };
-      setCategories(updated);
-      return;
+      const items = Array.from(updated[sourceCatIndex].activities);
+      const [removed] = items.splice(source.index, 1);
+      items.splice(destination.index, 0, removed);
+      updated[sourceCatIndex].activities = items;
+    } else {
+      const sourceItems = Array.from(updated[sourceCatIndex].activities);
+      const [moved] = sourceItems.splice(source.index, 1);
+      const destItems = Array.from(updated[destCatIndex].activities);
+      destItems.splice(destination.index, 0, moved);
+
+      updated[sourceCatIndex].activities = sourceItems;
+      updated[destCatIndex].activities = destItems;
     }
 
-    const sourceItems = Array.from(updated[sourceCatIndex].activities);
-    const [moved] = sourceItems.splice(source.index, 1);
-    const destItems = Array.from(updated[destCatIndex].activities);
-    destItems.splice(destination.index, 0, moved);
-    updated[sourceCatIndex] = {
-      ...updated[sourceCatIndex],
-      activities: sourceItems,
-    };
-    updated[destCatIndex] = {
-      ...updated[destCatIndex],
-      activities: destItems,
-    };
     setCategories(updated);
   };
 
@@ -163,151 +155,158 @@ const CourseCategoryList: React.FC = () => {
                   key={category.id}
                 >
                   {(provCat, snapshotCat) => (
-                    <div ref={provCat.innerRef} {...provCat.draggableProps}>
-                      <div
-                        className={`card card-flush mb-6 shadow-sm border border-gray-200 ${
-                          snapshotCat.isDragging ? "bg-light-primary" : ""
-                        }`}
-                      >
-                        <div
-                          {...provCat.dragHandleProps}
-                          className="card-header cursor-move bg-light px-5 py-3 border-bottom d-flex justify-content-between align-items-center"
-                        >
-                          {editingCategoryId === category.id ? (
-                            <div className="d-flex align-items-center gap-2 w-100">
-                              <input
-                                type="text"
-                                value={tempTitle}
-                                onChange={(e) => setTempTitle(e.target.value)}
-                                className="form-control"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter")
-                                    handleTitleSave(category.id);
-                                }}
-                              />
-                              <button
-                                className="btn btn-sm btn-success"
-                                onClick={() => handleTitleSave(category.id)}
-                              >
-                                <i className="bi bi-check-lg"></i>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="d-flex align-items-center justify-content-between w-100">
-                              <h3 className="card-title fw-bold fs-4 text-dark mb-0">
-                                {category.title}
-                              </h3>
-                              <button
-                                className="btn btn-sm btn-light"
-                                onClick={() =>
-                                  handleTitleEdit(category.id, category.title)
-                                }
-                              >
-                                <i className="bi bi-pencil-square text-primary"></i>
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                    <div
+                      ref={provCat.innerRef}
+                      {...provCat.draggableProps}
+                      {...provCat.dragHandleProps}
+                      className={`card card-flush mb-6 shadow-sm border ${
+                        snapshotCat.isDragging ? "bg-light-primary" : ""
+                      }`}
+                    >
+                      <div className="card-header bg-light px-5 py-3 border-bottom d-flex justify-content-between align-items-center">
+                        {editingCategoryId === category.id ? (
+                          <div className="d-flex gap-2 w-100">
+                            <input
+                              value={tempTitle}
+                              onChange={(e) => setTempTitle(e.target.value)}
+                              className="form-control"
+                              autoFocus
+                              onKeyDown={(e) =>
+                                e.key === "Enter" &&
+                                handleTitleSave(category.id)
+                              }
+                            />
+                            <button
+                              className="btn btn-sm btn-success"
+                              onClick={() => handleTitleSave(category.id)}
+                            >
+                              <i className="bi bi-check-lg"></i>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="d-flex justify-content-between w-100">
+                            <h3 className="card-title fw-bold fs-4 text-dark mb-0">
+                              {category.title}
+                            </h3>
 
-                        <Droppable droppableId={category.id} type="activity">
-                          {(provList, snapshotList) => (
-                            <div
-                              ref={provList.innerRef}
-                              {...provList.droppableProps}
-                              className="card-body bg-white py-4"
-                              style={{
-                                minHeight: 64,
-                                background: snapshotList.isDraggingOver
-                                  ? "#f8fbff"
-                                  : "white",
-                                transition: "background-color 0.15s ease",
+                            <button
+                              className="btn btn-sm btn-light"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTitleEdit(category.id, category.title);
                               }}
                             >
-                              {category.activities.map((act, actIndex) => (
-                                <Draggable
-                                  key={act.id}
-                                  draggableId={act.id}
-                                  index={actIndex}
-                                >
-                                  {(provAct, snapshotAct) => (
-                                    <div
-                                      ref={provAct.innerRef}
-                                      {...provAct.draggableProps}
-                                      className={`d-flex align-items-center justify-content-between border rounded p-3 mb-2 bg-light cursor-pointer ${
-                                        snapshotAct.isDragging
-                                          ? "shadow-sm bg-light-primary"
-                                          : ""
-                                      }`}
-                                    >
-                                      <div className="d-flex align-items-center gap-2">
-                                        {editingActivityId === act.id ? (
-                                          <input
-                                            type="text"
-                                            value={tempTitle}
-                                            onChange={(e) =>
-                                              setTempTitle(e.target.value)
-                                            }
-                                            className="form-control"
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                              if (e.key === "Enter")
-                                                handleActivitySave(
-                                                  category.id,
-                                                  act.id
-                                                );
-                                            }}
-                                            onBlur={() =>
-                                              handleActivitySave(
-                                                category.id,
-                                                act.id
-                                              )
-                                            }
-                                            style={{ minWidth: "150px" }}
-                                          />
-                                        ) : (
-                                          <span className="fw-semibold text-gray-800">
-                                            {act.name}
-                                          </span>
-                                        )}
-                                        {!editingActivityId && (
-                                          <button
-                                            className="btn btn-sm btn-light p-1"
-                                            onClick={() =>
-                                              handleActivityEdit(
-                                                act.id,
-                                                act.name
-                                              )
-                                            }
-                                          >
-                                            <i className="bi bi-pencil-square text-primary"></i>
-                                          </button>
-                                        )}
-                                      </div>
-
-                                      {/* Drag handle stays on the right */}
-                                      <div
-                                        {...provAct.dragHandleProps}
-                                        className="text-muted fs-7"
-                                      >
-                                        <i className="bi bi-grip-vertical"></i>
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-
-                              {provList.placeholder}
-                              <button
-                                className="btn btn-light-primary w-100 mt-3"
-                                onClick={() => handleAddActivity(category.id)}
-                              >
-                                + Add Activity
-                              </button>
-                            </div>
-                          )}
-                        </Droppable>
+                              <i className="bi bi-pencil-square text-primary"></i>
+                            </button>
+                          </div>
+                        )}
                       </div>
+
+                      <Droppable droppableId={category.id} type="activity">
+                        {(provList, snapshotList) => (
+                          <div
+                            ref={provList.innerRef}
+                            {...provList.droppableProps}
+                            className="card-body bg-white py-4"
+                            style={{
+                              minHeight: 64,
+                              backgroundColor: snapshotList.isDraggingOver
+                                ? "#f8fbff"
+                                : "white",
+                            }}
+                          >
+                            {category.activities.map((act, actIndex) => (
+                              <Draggable
+                                key={act.id}
+                                draggableId={act.id}
+                                index={actIndex}
+                              >
+                                {(provAct, snapshotAct) => (
+                                  <div
+                                    ref={provAct.innerRef}
+                                    {...provAct.draggableProps}
+                                    {...provAct.dragHandleProps}
+                                    className={`d-flex align-items-center justify-content-between border rounded p-3 mb-2 bg-light cursor-pointer ${
+                                      snapshotAct.isDragging
+                                        ? "shadow-sm bg-light-primary"
+                                        : ""
+                                    }`}
+                                  >
+                                    {/* LEFT SIDE: name + rename */}
+                                    <div className="d-flex align-items-center gap-3">
+                                      {editingActivityId === act.id ? (
+                                        <input
+                                          value={tempTitle}
+                                          onChange={(e) =>
+                                            setTempTitle(e.target.value)
+                                          }
+                                          className="form-control"
+                                          autoFocus
+                                          onKeyDown={(e) =>
+                                            e.key === "Enter" &&
+                                            handleActivitySave(
+                                              category.id,
+                                              act.id
+                                            )
+                                          }
+                                          onBlur={() =>
+                                            handleActivitySave(
+                                              category.id,
+                                              act.id
+                                            )
+                                          }
+                                          style={{ minWidth: 150 }}
+                                        />
+                                      ) : (
+                                        <span className="fw-semibold text-gray-800">
+                                          {act.name}
+                                        </span>
+                                      )}
+
+                                      {/* Rename icon */}
+                                      {!editingActivityId && (
+                                        <button
+                                          className="btn btn-sm btn-light p-1"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleActivityEdit(
+                                              act.id,
+                                              act.name
+                                            );
+                                          }}
+                                        >
+                                          <i className="bi bi-pencil-square text-primary"></i>
+                                        </button>
+                                      )}
+
+                                      {/* ⭐ NEW: OPEN ACTIVITY PAGE */}
+                                      <button
+                                        className="btn btn-sm btn-light p-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          window.location.href =
+                                            "/apps/course/activity";
+                                        }}
+                                      >
+                                        <i className="bi bi-box-arrow-up-right text-info"></i>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+
+                            {provList.placeholder}
+
+                            <button
+                              className="btn btn-light-primary w-100 mt-3"
+                              onClick={() => handleAddActivity(category.id)}
+                            >
+                              + Add Activity
+                            </button>
+                          </div>
+                        )}
+                      </Droppable>
                     </div>
                   )}
                 </Draggable>
