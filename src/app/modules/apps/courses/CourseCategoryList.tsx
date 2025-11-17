@@ -15,16 +15,19 @@ const CourseCategoryList: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([
     {
       id: "cat-1",
-      title: "Lesson 1 - Motherboard Introduction",
+      title: "သင်ခန်းစာ ၁ - မားသားဘုတ်အကြောင်းမိတ်ဆက်",
       activities: [
-        { id: "act-1", name: "What is a Motherboard?" },
-        { id: "act-2", name: "Motherboard Components Overview" },
-        { id: "act-3", name: "Quiz - Motherboard Basics" },
+        {
+          id: "act-1",
+          name: "ချိတ်ဆက်မှုနည်းပညာ ဆိုတာဘာလဲ။ ဘာကြောင့်အရေးကြီးတာလဲ",
+        },
+        { id: "act-2", name: "ကြိုးတပ်ချိတ်ဆက်မှုနည်းပညာ" },
+        { id: "act-3", name: "တတ်မြောက်မှုစစ်ဆေးခြင်း" },
       ],
     },
     {
       id: "cat-2",
-      title: "Lesson 2 - Motherboard Form Factors",
+      title: "သင်ခန်းစာ (၂) - ကွန်ပျူတာ Port နှင့် Cable ကြိုးများ",
       activities: [
         { id: "act-4", name: "Form Factor Overview" },
         { id: "act-5", name: "ATX vs Micro ATX vs Mini ITX" },
