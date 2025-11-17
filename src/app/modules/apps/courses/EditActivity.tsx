@@ -80,11 +80,11 @@ export const EditActivity = () => {
               </Form.Group>
 
               {/* OPTIONS: DOWNLOAD, EMBED, COPYRIGHT */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Check type="checkbox" label="Allow download" />
                 <Form.Check type="checkbox" label="Embed button" />
                 <Form.Check type="checkbox" label="Copyright button" />
-              </Form.Group>
+              </Form.Group> */}
 
               {/* GRADE */}
               <Form.Group className="mb-5">
@@ -214,7 +214,7 @@ export const EditActivity = () => {
               </Form.Group>
 
               {/* COMPLETION SETTINGS */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Completion settings
                 </Form.Label>
@@ -245,7 +245,7 @@ export const EditActivity = () => {
                     label="View the activity"
                   />
                 </div>
-              </Form.Group>
+              </Form.Group> */}
 
               {/* COURSE COMPETENCIES */}
               <Form.Group className="mb-5">
@@ -279,6 +279,17 @@ export const EditActivity = () => {
           {/* EXTERNAL URL BLOCK */}
           {type === "external_url" && (
             <>
+              {/* LINK TYPE */}
+              <Form.Group className="mb-5">
+                <Form.Label className="required fw-bold fs-6">
+                  Link Type
+                </Form.Label>
+                <Form.Select>
+                  <option value="youtube">YouTube</option>
+                  <option value="weburl">Web URL</option>
+                </Form.Select>
+              </Form.Group>
+
               {/* EXTERNAL URL */}
               <Form.Group className="mb-5">
                 <Form.Label className="required fw-bold fs-6">
@@ -286,33 +297,6 @@ export const EditActivity = () => {
                 </Form.Label>
                 <Form.Control placeholder="https://example.com" />
               </Form.Group>
-
-              {/* DESCRIPTION WITH WYSIWYG EDITOR
-              <Form.Group className="mb-5">
-                <Form.Label className="fw-bold fs-6">Description</Form.Label>
-
-                <div
-                  className="border rounded p-2"
-                  style={{
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                    height: 200,
-                  }}
-                >
-                  <Editor
-                    editorState={editorState}
-                    onEditorStateChange={setEditorState}
-                    wrapperClassName="demo-wrapper"
-                    editorClassName="demo-editor"
-                  />
-                </div>
-
-                <Form.Check
-                  className="mt-3"
-                  type="checkbox"
-                  label="Display description on course page"
-                />
-              </Form.Group> */}
 
               {/* DISPLAY */}
               <Form.Group className="mb-5">
@@ -355,107 +339,6 @@ export const EditActivity = () => {
                     Add restriction...
                   </Button>
                 </div>
-              </Form.Group>
-
-              {/* COMPLETION SETTINGS */}
-              <Form.Group className="mb-5">
-                <Form.Label className="fw-bold fs-6">
-                  Completion settings
-                </Form.Label>
-
-                <div className="p-3 border rounded bg-light mb-3">
-                  <p className="text-muted">
-                    This activity is marked as done for one or more students...
-                  </p>
-                  <Button variant="info" size="sm">
-                    Unlock completion settings
-                  </Button>
-                </div>
-
-                <Form.Check
-                  className="mb-2"
-                  type="radio"
-                  label="None"
-                  name="completion"
-                />
-                <Form.Check
-                  className="mb-2"
-                  type="radio"
-                  label="Students must manually mark the activity as done"
-                  name="completion"
-                />
-                <Form.Check
-                  className="mb-3"
-                  type="radio"
-                  label="Add requirements"
-                  name="completion"
-                />
-
-                <div className="ms-4 p-3 border rounded">
-                  <Form.Check
-                    className="mb-2"
-                    type="checkbox"
-                    label="View the activity"
-                  />
-                </div>
-              </Form.Group>
-
-              {/* REMINDER */}
-              <Form.Group className="mb-5">
-                <Form.Label className="fw-bold fs-6">
-                  Set reminder in Timeline
-                </Form.Label>
-
-                <Form.Check className="mb-3" type="checkbox" label="Enable" />
-
-                <div className="d-flex gap-3">
-                  <Form.Select style={{ width: "120px" }}>
-                    <option>13</option>
-                  </Form.Select>
-
-                  <Form.Select style={{ width: "150px" }}>
-                    <option>November</option>
-                  </Form.Select>
-
-                  <Form.Select style={{ width: "120px" }}>
-                    <option>2025</option>
-                  </Form.Select>
-
-                  <Form.Select style={{ width: "120px" }}>
-                    <option>14</option>
-                  </Form.Select>
-
-                  <Form.Select style={{ width: "120px" }}>
-                    <option>15</option>
-                  </Form.Select>
-                </div>
-              </Form.Group>
-
-              {/* COMPETENCIES */}
-              <Form.Group className="mb-5">
-                <Form.Label className="fw-bold fs-6">
-                  Course competencies
-                </Form.Label>
-                <Form.Select>
-                  <option>No selection</option>
-                </Form.Select>
-              </Form.Group>
-
-              {/* ACTIVITY COMPLETION RESULT */}
-              <Form.Group className="mb-5">
-                <Form.Label className="fw-bold fs-6">
-                  Upon activity completion
-                </Form.Label>
-                <Form.Select>
-                  <option>Do nothing</option>
-                  <option>Send notification</option>
-                </Form.Select>
-
-                <Form.Check
-                  className="mt-3"
-                  type="checkbox"
-                  label="Send content change notification"
-                />
               </Form.Group>
             </>
           )}

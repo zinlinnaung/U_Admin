@@ -43,8 +43,8 @@ type Course = {
 const mockCourses: Course[] = [
   {
     id: 1,
-    fullName: "Introduction to Digital Literacy",
-    shortName: "DIGLIT101",
+    fullName: "မားသား ဘုတ် (Motherboard)",
+    shortName: "မားသား ဘုတ် (Motherboard)",
     category: "Digital Literacy",
     overview: "<p>This course introduces basic digital skills.</p>",
     format: "Custom sections",
@@ -58,8 +58,8 @@ const mockCourses: Course[] = [
   },
   {
     id: 2,
-    fullName: "Web Development Fundamentals",
-    shortName: "WEBDEV101",
+    fullName: "ကွန်ပျူတာနှင့်ချိတ်ဆက်မှုနည်းပညာ",
+    shortName: "ကွန်ပျူတာနှင့်ချိတ်ဆက်မှုနည်းပညာ",
     category: "Web Development",
     overview: "<p>Learn the basics of HTML, CSS, and JavaScript.</p>",
     format: "Custom sections",
@@ -73,8 +73,8 @@ const mockCourses: Course[] = [
   },
   {
     id: 3,
-    fullName: "Advanced React Techniques",
-    shortName: "REACT301",
+    fullName: "ဉာဏ်ရည်တုနည်းပညာ (AI) မိတ်ဆက်",
+    shortName: "ဉာဏ်ရည်တုနည်းပညာ (AI) မိတ်ဆက်",
     category: "Frontend",
     overview: "<p>Dive deep into React hooks, context, and performance.</p>",
     format: "Custom sections",

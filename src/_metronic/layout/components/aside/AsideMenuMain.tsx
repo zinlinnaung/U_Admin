@@ -233,7 +233,7 @@ export function AsideMenuMain() {
         />
 
         <AsideMenuItem
-          to="/apps/course-category"
+          to="/apps/home-category"
           title="Home Category"
           hasBullet={true}
           fontIcon="bi-grid-3x3-gap" // 🗂 clean grid for category blocks
