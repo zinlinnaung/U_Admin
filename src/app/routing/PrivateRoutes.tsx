@@ -14,6 +14,7 @@ import CourseCategoryPage from "../modules/apps/courses/CourseCategoryPage";
 import SliderPage from "../modules/apps/home_page/SliderPage";
 import { EditActivity } from "../modules/apps/courses/EditActivity";
 import HomeCategoryPage from "../modules/apps/home_page/HomeCategoryPage";
+import ElibraryPage from "../modules/apps/e-library/Elibrary";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -125,6 +126,14 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <HomeCategoryPage />
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="apps/e-library"
+          element={
+            <SuspensedView>
+              <ElibraryPage />
             </SuspensedView>
           }
         />
