@@ -9,7 +9,7 @@ export function AsideMenuMain() {
     <>
       <AsideMenuItem
         to="/dashboard"
-        title="Home"
+        title="Dashboard"
         fontIcon="bi-house fs-2"
         bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
         className="py-2"
@@ -25,7 +25,7 @@ export function AsideMenuMain() {
         to="/apps/e-library"
         title="Elibrary"
         fontIcon="bi-book fs-2"
-        bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
+        bsTitle={intl.formatMessage({ id: "MENU.Elibrary" })}
         className="py-2"
       />
 
@@ -33,7 +33,7 @@ export function AsideMenuMain() {
         to="/apps/course"
         title="Courses"
         fontIcon="bi-mortarboard fs-2"
-        bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
+        bsTitle={intl.formatMessage({ id: "MENU.Courses" })}
         // className="py-2"
       >
         <AsideMenuItem
@@ -227,10 +227,10 @@ export function AsideMenuMain() {
         />
       </AsideMenuItemWithSubMain>
       <AsideMenuItemWithSubMain
-        to="/apps/course"
+        to="/apps/home"
         title="Home"
         fontIcon="bi-house-door fs-2" // 🏠 Better icon for homepage
-        bsTitle={intl.formatMessage({ id: "MENU.DASHBOARD" })}
+        bsTitle={intl.formatMessage({ id: "MENU.Home" })}
       >
         <AsideMenuItem
           to="/apps/home/sliders"

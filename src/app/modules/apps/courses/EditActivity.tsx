@@ -87,7 +87,7 @@ export const EditActivity = () => {
               </Form.Group> */}
 
               {/* GRADE */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">Grade</Form.Label>
 
                 <Form.Select className="mb-3">
@@ -99,24 +99,24 @@ export const EditActivity = () => {
                   placeholder="Maximum grade"
                   defaultValue={100}
                 />
-              </Form.Group>
+              </Form.Group> */}
 
               {/* GRADE CATEGORY */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">Grade category</Form.Label>
                 <Form.Select>
                   <option>Uncategorised</option>
                 </Form.Select>
-              </Form.Group>
+              </Form.Group> */}
 
               {/* GRADE TO PASS */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">Grade to pass</Form.Label>
                 <Form.Control type="number" placeholder="0" />
-              </Form.Group>
+              </Form.Group> */}
 
               {/* ENABLE ATTEMPT TRACKING */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Enable attempt tracking
                 </Form.Label>
@@ -124,20 +124,20 @@ export const EditActivity = () => {
                   <option>Yes</option>
                   <option>No</option>
                 </Form.Select>
-              </Form.Group>
+              </Form.Group> */}
 
               {/* GRADING METHOD */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">Grading method</Form.Label>
                 <Form.Select>
                   <option>Highest grade</option>
                   <option>Average grade</option>
                   <option>Last attempt</option>
                 </Form.Select>
-              </Form.Group>
+              </Form.Group> */}
 
               {/* REVIEW ATTEMPTS */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Review attempts
                 </Form.Label>
@@ -145,7 +145,7 @@ export const EditActivity = () => {
                   <option>Participants can review their own attempts</option>
                   <option>Do not allow review</option>
                 </Form.Select>
-              </Form.Group>
+              </Form.Group> */}
             </>
           )}
 
@@ -195,13 +195,13 @@ export const EditActivity = () => {
               </Form.Group>
 
               {/* ID NUMBER */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">ID number</Form.Label>
                 <Form.Control placeholder="Optional ID..." />
-              </Form.Group>
+              </Form.Group> */}
 
               {/* ACCESS RESTRICTIONS */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Access restrictions
                 </Form.Label>
@@ -211,7 +211,7 @@ export const EditActivity = () => {
                     Add restriction...
                   </Button>
                 </div>
-              </Form.Group>
+              </Form.Group> */}
 
               {/* COMPLETION SETTINGS */}
               {/* <Form.Group className="mb-5">
@@ -248,17 +248,17 @@ export const EditActivity = () => {
               </Form.Group> */}
 
               {/* COURSE COMPETENCIES */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Course competencies
                 </Form.Label>
                 <Form.Select>
                   <option>No selection</option>
                 </Form.Select>
-              </Form.Group>
+              </Form.Group> */}
 
               {/* UPON ACTIVITY COMPLETION */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Upon activity completion
                 </Form.Label>
@@ -272,7 +272,7 @@ export const EditActivity = () => {
                   type="checkbox"
                   label="Send content change notification"
                 />
-              </Form.Group>
+              </Form.Group> */}
             </>
           )}
 
@@ -323,13 +323,13 @@ export const EditActivity = () => {
               </Form.Group>
 
               {/* ID NUMBER */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">ID Number</Form.Label>
                 <Form.Control placeholder="Optional ID..." />
-              </Form.Group>
+              </Form.Group> */}
 
               {/* ACCESS RESTRICTIONS */}
-              <Form.Group className="mb-5">
+              {/* <Form.Group className="mb-5">
                 <Form.Label className="fw-bold fs-6">
                   Access restrictions
                 </Form.Label>
@@ -339,7 +339,7 @@ export const EditActivity = () => {
                     Add restriction...
                   </Button>
                 </div>
-              </Form.Group>
+              </Form.Group> */}
             </>
           )}
 

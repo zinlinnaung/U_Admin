@@ -40,7 +40,7 @@ const CATEGORIES = [
 const mock = [
   {
     id: 1,
-    name: "Healthy Eating Basics",
+    name: "Biology 2",
     previewImage: "preview1.jpg",
     type: "Article - Text",
     courseCategory: "Health & Wellbeing",
@@ -52,7 +52,7 @@ const mock = [
   },
   {
     id: 2,
-    name: "Digital Skills Starter Guide",
+    name: "English TB-Eng",
     previewImage: "preview2.jpg",
     type: "E-Book",
     courseCategory: "Digital Literacy",
