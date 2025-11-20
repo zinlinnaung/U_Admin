@@ -43,7 +43,7 @@ const AsideDefault: FC = () => {
       {/* begin::Footer */}
       <div className="aside-footer flex-column-auto" id="kt_aside_footer">
         {/* begin::Menu */}
-        <div className="d-flex justify-content-center">
+        {/* <div className="d-flex justify-content-center">
           <button
             type="button"
             className="btn btm-sm btn-icon btn-active-color-primary"
@@ -58,7 +58,7 @@ const AsideDefault: FC = () => {
             <KTIcon iconName="element-11" className="fs-2 text-lg-1" />
           </button>
           <Dropdown2 />
-        </div>
+        </div> */}
         {/* end::Menu */}
       </div>
       {/* end::Footer */}

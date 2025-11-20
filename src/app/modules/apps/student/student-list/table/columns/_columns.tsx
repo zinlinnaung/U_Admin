@@ -3,6 +3,34 @@ import { Student } from "../../core/_models";
 import { StudentCustomHeader } from "./StudentCustomHeader";
 import { StudentActionsCell } from "./StudentActionsCell";
 
+// Custom sorting function for the 'Date of Birth' column
+// It creates a comparable Date object from the separate day, month, and year fields.
+const dobSortingFn: ColumnDef<Student>["sortingFn"] = (
+  rowA,
+  rowB,
+  columnId
+) => {
+  // Helper to safely coerce a possibly undefined or string value to a number.
+  const toNum = (v?: string | number): number =>
+    typeof v === "number" ? v : Number(v ?? 0);
+
+  // NOTE: Month in JavaScript Date is 0-indexed (Jan=0, Dec=11), so we subtract 1 from dobMonth.
+  const dateA = new Date(
+    toNum(rowA.original.dobYear),
+    toNum(rowA.original.dobMonth) - 1,
+    toNum(rowA.original.dobDay)
+  ).getTime();
+  const dateB = new Date(
+    toNum(rowB.original.dobYear),
+    toNum(rowB.original.dobMonth) - 1,
+    toNum(rowB.original.dobDay)
+  ).getTime();
+
+  if (dateA < dateB) return -1; // rowA comes first
+  if (dateA > dateB) return 1; // rowB comes first
+  return 0; // Dates are equal
+};
+
 export const studentsColumns: ColumnDef<Student>[] = [
   {
     header: (props) => (
@@ -13,6 +41,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "id",
+    accessorKey: "id", // <-- Enables Sorting
     cell: (info) => (
       <span className="badge badge-light-info fw-bold fs-7">
         {info.row.original.id}
@@ -29,6 +58,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "username",
+    accessorKey: "username", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.username}</span>,
   },
 
@@ -41,6 +71,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "email",
+    accessorKey: "email", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.email}</span>,
   },
 
@@ -53,6 +84,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "phone",
+    accessorKey: "phone", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.phone}</span>,
   },
 
@@ -65,6 +97,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "displayName",
+    accessorKey: "displayName", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.displayName}</span>,
   },
 
@@ -77,6 +110,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "region",
+    accessorKey: "region", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.region}</span>,
   },
 
@@ -89,6 +123,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "township",
+    accessorKey: "township", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.township}</span>,
   },
 
@@ -101,6 +136,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "country",
+    accessorKey: "country", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.country}</span>,
   },
 
@@ -113,6 +149,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "dob",
+    sortingFn: dobSortingFn, // <-- Enables Sorting (Custom Logic)
     cell: (info) => {
       const s = info.row.original;
       return <span>{`${s.dobDay}-${s.dobMonth}-${s.dobYear}`}</span>;
@@ -128,6 +165,7 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "gender",
+    accessorKey: "gender", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.gender}</span>,
   },
 
@@ -140,35 +178,11 @@ export const studentsColumns: ColumnDef<Student>[] = [
       />
     ),
     id: "platform",
+    accessorKey: "platform", // <-- Enables Sorting
     cell: (info) => <span>{info.row.original.platform}</span>,
   },
 
-  // {
-  //   header: (props) => (
-  //     <StudentCustomHeader
-  //       tableProps={props}
-  //       title="Special Needs"
-  //       className="min-w-150px"
-  //     />
-  //   ),
-  //   id: "specialNeeds",
-  //   cell: (info) => (
-  //     <span>{info.row.original.specialNeeds ? "Yes" : "No"}</span>
-  //   ),
-  // },
-
-  // {
-  //   header: (props) => (
-  //     <StudentCustomHeader
-  //       tableProps={props}
-  //       title="Accepted Terms"
-  //       className="min-w-150px"
-  //     />
-  //   ),
-  //   id: "acceptedTerms",
-  //   cell: (info) => <span>{info.row.original.acceptedTerms ? "✔" : "✘"}</span>,
-  // },
-
+  // The 'Actions' column is not typically sortable.
   {
     header: (props) => (
       <StudentCustomHeader

@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react"; // <-- Import useState
 import {
   useReactTable,
   getCoreRowModel,
+  getSortedRowModel, // <-- IMPORT THIS
   flexRender,
   Row,
+  SortingState, // <-- IMPORT THIS
 } from "@tanstack/react-table";
 import {
   useQueryResponseData,
@@ -19,6 +21,10 @@ import { StudentsListPagination } from "../components/pagination/StudentsListPag
 const StudentsTable = () => {
   const students = useQueryResponseData();
   const isLoading = useQueryResponseLoading();
+
+  // 1. DEFINE SORTING STATE
+  const [sorting, setSorting] = useState<SortingState>([]); // <-- New State for sorting
+
   const data = useMemo(() => students, [students]);
   const columns = useMemo(() => studentsColumns, []);
 
@@ -26,10 +32,18 @@ const StudentsTable = () => {
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+
+    // 2. ADD SORTING CONFIGURATION
+    onSortingChange: setSorting, // Function to update the sorting state on header click
+    getSortedRowModel: getSortedRowModel(), // Logic to apply the sorting to rows
+    state: {
+      sorting, // Pass the current sorting state
+    },
+    // --------------------------------
   });
 
   return (
-    <KTCardBody className="py-4  ">
+    <KTCardBody className="py-4">
       <div className="table-responsive">
         <table
           id="kt_table_students"
@@ -42,7 +56,19 @@ const StudentsTable = () => {
                 className="text-start text-muted fw-bolder fs-7 text-uppercase gs-0"
               >
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} colSpan={header.colSpan}>
+                  <th
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    // 3. APPLY SORTING STYLES (for Metronic default look)
+                    {...{
+                      className: header.column.getCanSort()
+                        ? "cursor-pointer user-select-none"
+                        : "",
+                      onClick: header.column.getToggleSortingHandler(),
+                    }}
+                    // Note: Your StudentCustomHeader component likely handles the onClick
+                    // and styling, but providing it here is the most direct way to ensure it works.
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -70,7 +96,9 @@ const StudentsTable = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={11}>
+                  {" "}
+                  {/* Updated colSpan to accommodate more columns */}
                   <div className="d-flex text-center w-100 align-content-center justify-content-center">
                     No students found
                   </div>
