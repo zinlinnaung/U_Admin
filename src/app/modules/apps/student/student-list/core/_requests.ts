@@ -6,62 +6,43 @@ const API_URL = import.meta.env.VITE_APP_THEME_API_URL;
 const STUDENT_URL = `${API_URL}/student`;
 const GET_STUDENTS_URL = `${API_URL}/students/query`;
 
-// Mock data - mutable so we can add/edit/delete
+// Mock data
 let mockStudents: Student[] = [
   {
     id: "STU001" as unknown as ID,
+    username: "alicej",
     password: "password123",
-    name: "Alice Johnson",
     email: "alice.johnson@student.edu",
-    enrollmentDate: "2023-09-01",
-    courseCount: 5,
-    gpa: 3.8,
-    status: "Active",
-    lastLogin: "2025-10-20T14:30:00",
+    phone: "+959123456789",
+    displayName: "Alice Johnson",
+    region: "Yangon",
+    township: "Sanchaung",
+    country: "Myanmar",
+    dobDay: "12",
+    dobMonth: "05",
+    dobYear: "2001",
+    gender: "Female",
+    platform: "Facebook",
+    specialNeeds: false,
+    acceptedTerms: true,
   },
   {
     id: "STU002" as unknown as ID,
-    name: "Bob Smith",
+    username: "bobsmith",
+    password: "password123",
     email: "bob.smith@student.edu",
-    password: "password123",
-    enrollmentDate: "2023-09-01",
-    courseCount: 4,
-    gpa: 3.5,
-    status: "Active",
-    lastLogin: "2025-10-20T10:15:00",
-  },
-  {
-    id: "STU003" as unknown as ID,
-    name: "Carol White",
-    email: "carol.white@student.edu",
-    password: "password123",
-    enrollmentDate: "2024-01-15",
-    courseCount: 3,
-    gpa: 3.9,
-    status: "Active",
-    lastLogin: "2025-10-19T16:45:00",
-  },
-  {
-    id: "STU004" as unknown as ID,
-    name: "David Brown",
-    email: "david.brown@student.edu",
-    password: "password123",
-    enrollmentDate: "2024-01-15",
-    courseCount: 6,
-    gpa: 3.2,
-    status: "Active",
-    lastLogin: "2025-10-19T09:20:00",
-  },
-  {
-    id: "STU005" as unknown as ID,
-    name: "Emma Davis",
-    email: "emma.davis@student.edu",
-    password: "password123",
-    enrollmentDate: "2022-09-01",
-    courseCount: 8,
-    gpa: 4.0,
-    status: "Active",
-    lastLogin: "2025-10-18T13:00:00",
+    phone: "+959987654321",
+    displayName: "Bob Smith",
+    region: "Mandalay",
+    township: "Chan Aye Thar San",
+    country: "Myanmar",
+    dobDay: "03",
+    dobMonth: "09",
+    dobYear: "2000",
+    gender: "Male",
+    platform: "TikTok",
+    specialNeeds: false,
+    acceptedTerms: true,
   },
 ];
 
@@ -98,8 +79,7 @@ const getStudentById = (id: ID): Promise<Student | undefined> => {
 
   return new Promise((resolve) => {
     setTimeout(() => {
-      const student = mockStudents.find((stu) => stu.id === id);
-      resolve(student);
+      resolve(mockStudents.find((stu) => stu.id === id));
     }, 300);
   });
 };
@@ -109,17 +89,17 @@ const createStudent = (student: Student): Promise<Student | undefined> => {
 
   return new Promise((resolve) => {
     setTimeout(() => {
-      const newStudent = {
+      const newStudent: Student = {
         ...student,
         id: `STU${String(mockStudents.length + 1).padStart(
           3,
           "0"
         )}` as unknown as ID,
-        enrollmentDate: new Date().toISOString().split("T")[0],
-        lastLogin: new Date().toISOString(),
       };
+
       mockStudents.push(newStudent);
       console.log("✅ Created! Total now:", mockStudents.length);
+
       resolve(newStudent);
     }, 500);
   });
@@ -134,9 +114,9 @@ const updateStudent = (student: Student): Promise<Student | undefined> => {
       if (index !== -1) {
         mockStudents[index] = { ...mockStudents[index], ...student };
         resolve(mockStudents[index]);
-      } else {
-        resolve(undefined);
+        return;
       }
+      resolve(undefined);
     }, 500);
   });
 };
@@ -144,10 +124,7 @@ const updateStudent = (student: Student): Promise<Student | undefined> => {
 const deleteStudent = (studentId: ID): Promise<void> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const index = mockStudents.findIndex((stu) => stu.id === studentId);
-      if (index !== -1) {
-        mockStudents.splice(index, 1);
-      }
+      mockStudents = mockStudents.filter((stu) => stu.id !== studentId);
       resolve();
     }, 500);
   });
@@ -156,12 +133,7 @@ const deleteStudent = (studentId: ID): Promise<void> => {
 const deleteSelectedStudents = (studentIds: Array<ID>): Promise<void> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      studentIds.forEach((id) => {
-        const index = mockStudents.findIndex((stu) => stu.id === id);
-        if (index !== -1) {
-          mockStudents.splice(index, 1);
-        }
-      });
+      mockStudents = mockStudents.filter((stu) => !studentIds.includes(stu.id));
       resolve();
     }, 500);
   });

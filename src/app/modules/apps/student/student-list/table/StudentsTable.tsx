@@ -29,7 +29,7 @@ const StudentsTable = () => {
   });
 
   return (
-    <KTCardBody className="py-4">
+    <KTCardBody className="py-4  ">
       <div className="table-responsive">
         <table
           id="kt_table_students"

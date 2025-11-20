@@ -18,83 +18,78 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
   const { refetch } = useQueryResponse();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
   const [formData, setFormData] = useState<Student>({
     id: undefined,
-    name: "",
+    username: "",
+    password: "",
     email: "",
-    password: "", // ✅ Added password field
-    enrollmentDate: "",
-    courseCount: 0,
-    gpa: 0,
-    status: "Active",
+    phone: "",
+    displayName: "",
+    region: "",
+    township: "",
+    country: "",
+    dobDay: "",
+    dobMonth: "",
+    dobYear: "",
+    gender: "",
+    platform: "Facebook",
+    platformOtherText: "",
+    specialNeeds: false,
+    acceptedTerms: true,
   });
+
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Load student when editing
   useEffect(() => {
-    if (studentId) {
-      setLoading(true);
-      getStudentById(studentId)
-        .then((student) => {
-          if (student) {
-            setFormData((prev) => ({
-              ...prev,
-              ...student,
-              password: "", // keep blank when editing for security
-            }));
-          }
-        })
-        .catch((error) => console.error("❌ Error loading student:", error))
-        .finally(() => setLoading(false));
-    } else {
-      setFormData({
-        id: undefined,
-        name: "",
-        email: "",
-        password: "",
-        enrollmentDate: "",
-        courseCount: 0,
-        gpa: 0,
-        status: "Active",
-      });
-    }
+    if (!studentId) return;
+
+    setLoading(true);
+
+    getStudentById(studentId)
+      .then((student) => {
+        if (student) {
+          setFormData({
+            ...student,
+            password: "", // blank for edit
+          });
+        }
+      })
+      .finally(() => setLoading(false));
   }, [studentId]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "gpa" || name === "courseCount"
-          ? parseFloat(value) || 0
-          : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
+
     if (errors[name]) {
       setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
       });
     }
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
+  const validateForm = () => {
+    const newErrors: any = {};
 
-    if (!formData.name?.trim()) newErrors.name = "Name is required";
+    if (!formData.username.trim()) newErrors.username = "Username required";
+    if (!formData.email.trim()) newErrors.email = "Email required";
+    if (!formData.displayName.trim())
+      newErrors.displayName = "Display name required";
 
-    if (!formData.email?.trim()) newErrors.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-      newErrors.email = "Invalid email format";
+    if (!studentId && !formData.password.trim())
+      newErrors.password = "Password required";
 
-    if (!studentId && !formData.password?.trim()) {
-      // only required when creating
-      newErrors.password = "Password is required";
-    }
-
-    if (formData.gpa !== undefined && (formData.gpa < 0 || formData.gpa > 4))
-      newErrors.gpa = "GPA must be between 0 and 4";
+    if (!formData.gender.trim()) newErrors.gender = "Gender required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -105,25 +100,24 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
     if (!validateForm()) return;
 
     setLoading(true);
+
     try {
-      const studentData = { ...formData };
+      const data = { ...formData };
+      if (studentId && !data.password) delete data.password;
 
       if (studentId) {
-        // Don't send empty password if user didn't change it
-        if (!studentData.password) delete studentData.password;
-
-        await updateStudent(studentData);
-        alert("Student updated successfully!");
+        await updateStudent(data);
+        alert("Student updated!");
       } else {
-        await createStudent(studentData);
-        alert("Student created successfully!");
+        await createStudent(data);
+        alert("Student created!");
       }
 
       await refetch();
       onClose();
-    } catch (error) {
-      console.error("❌ Error saving student:", error);
-      alert("Error saving student. Please try again.");
+    } catch (err) {
+      console.error(err);
+      alert("Saving failed. Try again.");
     } finally {
       setLoading(false);
     }
@@ -132,172 +126,198 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
   if (loading && studentId) {
     return (
       <div className="text-center py-5">
-        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-        <span className="ms-2">Loading...</span>
+        <span className="spinner-border spinner-border-sm me-2"></span>
+        Loading...
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="form">
-      <div className="mb-7">
-        <h3 className="fw-bold text-dark mb-5">Student Information</h3>
+    <form className="form" onSubmit={handleSubmit}>
+      <h3 className="fw-bold mb-7">Student Information</h3>
 
-        {/* Name */}
+      {/* Username */}
+      <div className="fv-row mb-5">
+        <label className="required fw-semibold mb-2">Username</label>
+        <input
+          type="text"
+          name="username"
+          className={clsx("form-control form-control-solid", {
+            "is-invalid": errors.username,
+          })}
+          value={formData.username}
+          onChange={handleInputChange}
+        />
+        {errors.username && (
+          <div className="invalid-feedback">{errors.username}</div>
+        )}
+      </div>
+
+      {/* Email */}
+      <div className="fv-row mb-5">
+        <label className="required fw-semibold mb-2">Email</label>
+        <input
+          type="email"
+          name="email"
+          className={clsx("form-control form-control-solid", {
+            "is-invalid": errors.email,
+          })}
+          value={formData.email}
+          onChange={handleInputChange}
+        />
+        {errors.email && <div className="invalid-feedback">{errors.email}</div>}
+      </div>
+
+      {/* Display Name */}
+      <div className="fv-row mb-5">
+        <label className="required fw-semibold mb-2">Display Name</label>
+        <input
+          type="text"
+          name="displayName"
+          className={clsx("form-control form-control-solid", {
+            "is-invalid": errors.displayName,
+          })}
+          value={formData.displayName}
+          onChange={handleInputChange}
+        />
+        {errors.displayName && (
+          <div className="invalid-feedback">{errors.displayName}</div>
+        )}
+      </div>
+
+      {/* Password */}
+      <div className="fv-row mb-5">
+        <label className={clsx("fw-semibold mb-2", { required: !studentId })}>
+          Password
+        </label>
+        <div className="input-group">
+          <input
+            type={showPassword ? "text" : "password"}
+            name="password"
+            className={clsx("form-control form-control-solid", {
+              "is-invalid": errors.password,
+            })}
+            placeholder={
+              studentId ? "Leave blank to keep existing" : "Enter password"
+            }
+            value={formData.password}
+            onChange={handleInputChange}
+          />
+          <button
+            type="button"
+            className="btn btn-light"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            <i
+              className={
+                showPassword ? "ki-outline ki-eye-slash" : "ki-outline ki-eye"
+              }
+            ></i>
+          </button>
+        </div>
+        {errors.password && (
+          <div className="invalid-feedback d-block">{errors.password}</div>
+        )}
+      </div>
+
+      {/* Phone */}
+      <div className="fv-row mb-5">
+        <label className="fw-semibold mb-2">Phone</label>
+        <input
+          type="text"
+          name="phone"
+          className="form-control form-control-solid"
+          value={formData.phone}
+          onChange={handleInputChange}
+        />
+      </div>
+
+      {/* Gender */}
+      <div className="fv-row mb-5">
+        <label className="required fw-semibold mb-2">Gender</label>
+        <select
+          name="gender"
+          className={clsx("form-select form-select-solid", {
+            "is-invalid": errors.gender,
+          })}
+          value={formData.gender}
+          onChange={handleInputChange}
+        >
+          <option value="">Select gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+        {errors.gender && (
+          <div className="invalid-feedback">{errors.gender}</div>
+        )}
+      </div>
+
+      {/* Platform */}
+      <div className="fv-row mb-5">
+        <label className="fw-semibold mb-2">How did you know us?</label>
+        <select
+          name="platform"
+          className="form-select form-select-solid"
+          value={formData.platform}
+          onChange={handleInputChange}
+        >
+          <option value="">Select</option>
+          <option value="Facebook">Facebook</option>
+          <option value="TikTok">TikTok</option>
+          <option value="YouTube">YouTube</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      {/* Platform Other Text */}
+      {formData.platform === "Other" && (
         <div className="fv-row mb-5">
-          <label className="required fw-semibold fs-6 mb-2">Full Name</label>
+          <label className="fw-semibold mb-2">Tell more</label>
           <input
             type="text"
-            name="name"
-            className={clsx("form-control form-control-solid", {
-              "is-invalid": errors.name,
-            })}
-            placeholder="Enter student name"
-            value={formData.name || ""}
-            onChange={handleInputChange}
-            disabled={loading}
-          />
-          {errors.name && <div className="invalid-feedback">{errors.name}</div>}
-        </div>
-
-        {/* Email */}
-        <div className="fv-row mb-5">
-          <label className="required fw-semibold fs-6 mb-2">Email</label>
-          <input
-            type="email"
-            name="email"
-            className={clsx("form-control form-control-solid", {
-              "is-invalid": errors.email,
-            })}
-            placeholder="student@university.edu"
-            value={formData.email || ""}
-            onChange={handleInputChange}
-            disabled={loading}
-          />
-          {errors.email && (
-            <div className="invalid-feedback">{errors.email}</div>
-          )}
-        </div>
-
-        {/* ✅ Password */}
-        <div className="fv-row mb-5 position-relative">
-          <label
-            className={clsx("fw-semibold fs-6 mb-2", {
-              required: !studentId,
-            })}
-          >
-            Password
-          </label>
-          <div className="input-group">
-            <input
-              type={showPassword ? "text" : "password"}
-              name="password"
-              className={clsx("form-control form-control-solid", {
-                "is-invalid": errors.password,
-              })}
-              placeholder={
-                studentId
-                  ? "Leave blank to keep current password"
-                  : "Enter password"
-              }
-              value={formData.password || ""}
-              onChange={handleInputChange}
-              disabled={loading}
-            />
-            <button
-              type="button"
-              className="btn btn-icon btn-light"
-              onClick={() => setShowPassword(!showPassword)}
-              tabIndex={-1}
-            >
-              <i
-                className={clsx(
-                  "ki-duotone",
-                  showPassword ? "ki-eye-slash" : "ki-eye"
-                )}
-              ></i>
-            </button>
-          </div>
-          {errors.password && (
-            <div className="invalid-feedback d-block">{errors.password}</div>
-          )}
-        </div>
-
-        <div className="row">
-          <div className="col-md-6">
-            {/* GPA */}
-            <div className="fv-row mb-5">
-              <label className="fw-semibold fs-6 mb-2">GPA</label>
-              <input
-                type="number"
-                name="gpa"
-                step="0.01"
-                min="0"
-                max="4"
-                className={clsx("form-control form-control-solid", {
-                  "is-invalid": errors.gpa,
-                })}
-                placeholder="0.00"
-                value={formData.gpa || ""}
-                onChange={handleInputChange}
-                disabled={loading}
-              />
-              {errors.gpa && (
-                <div className="invalid-feedback">{errors.gpa}</div>
-              )}
-            </div>
-          </div>
-
-          {/* Status */}
-          <div className="col-md-6">
-            <div className="fv-row mb-5">
-              <label className="fw-semibold fs-6 mb-2">Status</label>
-              <select
-                name="status"
-                className="form-select form-select-solid"
-                value={formData.status || "Active"}
-                onChange={handleInputChange}
-                disabled={loading}
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Graduated">Graduated</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Enrollment Date */}
-        <div className="fv-row mb-5">
-          <label className="fw-semibold fs-6 mb-2">Enrollment Date</label>
-          <input
-            type="date"
-            name="enrollmentDate"
+            name="platformOtherText"
             className="form-control form-control-solid"
-            value={formData.enrollmentDate || ""}
+            value={formData.platformOtherText}
             onChange={handleInputChange}
-            disabled={loading}
           />
         </div>
+      )}
+
+      {/* Special needs */}
+      <div className="form-check form-check-solid mb-5">
+        <input
+          type="checkbox"
+          name="specialNeeds"
+          className="form-check-input"
+          checked={formData.specialNeeds}
+          onChange={handleInputChange}
+        />
+        <label className="form-check-label">Special needs</label>
+      </div>
+
+      {/* Terms */}
+      <div className="form-check form-check-solid mb-5">
+        <input
+          type="checkbox"
+          name="acceptedTerms"
+          className="form-check-input"
+          checked={formData.acceptedTerms}
+          onChange={handleInputChange}
+        />
+        <label className="form-check-label">Accepted Terms</label>
       </div>
 
       {/* Buttons */}
       <div className="text-end">
-        <button
-          type="button"
-          className="btn btn-light me-3"
-          onClick={onClose}
-          disabled={loading}
-        >
+        <button type="button" className="btn btn-light me-3" onClick={onClose}>
           Cancel
         </button>
+
         <button type="submit" className="btn btn-primary" disabled={loading}>
           {!loading && (studentId ? "Update Student" : "Create Student")}
           {loading && (
-            <span className="indicator-progress" style={{ display: "block" }}>
-              Please wait...
-              <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-            </span>
+            <span className="spinner-border spinner-border-sm ms-2"></span>
           )}
         </button>
       </div>

@@ -30,14 +30,14 @@ export function AsideMenuMain() {
       />
 
       <AsideMenuItemWithSubMain
-        to="/apps/course"
+        to="/apps/courses"
         title="Courses"
         fontIcon="bi-mortarboard fs-2"
         bsTitle={intl.formatMessage({ id: "MENU.Courses" })}
         // className="py-2"
       >
         <AsideMenuItem
-          to="/apps/course"
+          to="/apps/courses"
           title="Courses"
           hasBullet={true}
           bsTitle="User management"
@@ -47,12 +47,12 @@ export function AsideMenuMain() {
           to="/apps/course-category"
           title="Courses Category"
           hasBullet={true}
-          bsTitle="User management"
+          bsTitle="Course management"
         />
       </AsideMenuItemWithSubMain>
 
       <AsideMenuItemWithSubMain
-        to="/crafted/pages"
+        to="/apps/user-management"
         title="Users"
         fontIcon="bi-file-text"
         bsTitle="Users"

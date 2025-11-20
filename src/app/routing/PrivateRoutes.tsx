@@ -146,7 +146,7 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path="apps/course"
+          path="apps/courses"
           element={
             <SuspensedView>
               <CoursePage />

@@ -1,27 +1,63 @@
 import { ID, Response } from "../../../../../../_metronic/helpers";
 
 export interface Student {
-  password: any;
   id?: ID;
-  name?: string;
+
+  // Main fields from the registration screen
+  username?: string;
+  password?: string;
   email?: string;
-  enrollmentDate?: string;
-  courseCount?: number;
-  gpa?: number;
-  status?: "Active" | "Inactive" | "Graduated";
-  lastLogin?: string;
+  phone?: string;
+  displayName?: string;
+
+  // Location
+  region?: string;
+  township?: string;
+  country?: string;
+
+  // Date of birth
+  dobDay?: string;
+  dobMonth?: string;
+  dobYear?: string;
+
+  gender?: string;
+
+  // Where they heard about the platform
+  platform?: "Facebook" | "TikTok" | "YouTube" | "Other";
+
+  platformOtherText?: string;
+
+  // Special needs
+  specialNeeds?: boolean;
+
+  // Terms of service
+  acceptedTerms?: boolean;
 }
 
 export type StudentsQueryResponse = Response<Array<Student>>;
 
 export const initialStudent: Student = {
   id: undefined,
-  name: "",
+
+  username: "",
+  password: "",
   email: "",
-  enrollmentDate: "",
-  courseCount: 0,
-  gpa: 0,
-  status: "Active",
-  lastLogin: "",
-  password: undefined,
+  phone: "",
+  displayName: "",
+
+  region: "",
+  township: "",
+  country: "",
+
+  dobDay: "",
+  dobMonth: "",
+  dobYear: "",
+
+  gender: "",
+
+  platform: "Other",
+  platformOtherText: "",
+
+  specialNeeds: false,
+  acceptedTerms: false,
 };
