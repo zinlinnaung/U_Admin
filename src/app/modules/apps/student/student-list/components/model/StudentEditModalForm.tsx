@@ -26,22 +26,27 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
     email: "",
     phone: "",
     displayName: "",
+
     region: "",
     township: "",
     country: "",
+
     dobDay: "",
     dobMonth: "",
     dobYear: "",
+
     gender: "",
+
     platform: "Facebook",
     platformOtherText: "",
+
     specialNeeds: false,
     acceptedTerms: true,
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Load student when editing
+  // Load student data for editing
   useEffect(() => {
     if (!studentId) return;
 
@@ -52,7 +57,7 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
         if (student) {
           setFormData({
             ...student,
-            password: "", // blank for edit
+            password: "", // password always blank when editing
           });
         }
       })
@@ -62,7 +67,11 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type } = e.target as
+      | HTMLInputElement
+      | HTMLSelectElement;
+    const checked =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
 
     setFormData((prev) => ({
       ...prev,
@@ -81,15 +90,15 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
   const validateForm = () => {
     const newErrors: any = {};
 
-    if (!formData.username.trim()) newErrors.username = "Username required";
-    if (!formData.email.trim()) newErrors.email = "Email required";
-    if (!formData.displayName.trim())
+    if (!formData.username?.trim()) newErrors.username = "Username required";
+    if (!formData.email?.trim()) newErrors.email = "Email required";
+    if (!formData.displayName?.trim())
       newErrors.displayName = "Display name required";
 
-    if (!studentId && !formData.password.trim())
+    if (!studentId && !formData.password?.trim())
       newErrors.password = "Password required";
 
-    if (!formData.gender.trim()) newErrors.gender = "Gender required";
+    if (!formData.gender?.trim()) newErrors.gender = "Gender required";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -103,7 +112,7 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
 
     try {
       const data = { ...formData };
-      if (studentId && !data.password) delete data.password;
+      if (studentId && !data.password) delete data.password; // do not send empty password
 
       if (studentId) {
         await updateStudent(data);
@@ -232,6 +241,73 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
         />
       </div>
 
+      {/* Region */}
+      <div className="fv-row mb-5">
+        <label className="fw-semibold mb-2">Region</label>
+        <input
+          type="text"
+          name="region"
+          className="form-control form-control-solid"
+          value={formData.region}
+          onChange={handleInputChange}
+        />
+      </div>
+
+      {/* Township */}
+      <div className="fv-row mb-5">
+        <label className="fw-semibold mb-2">Township</label>
+        <input
+          type="text"
+          name="township"
+          className="form-control form-control-solid"
+          value={formData.township}
+          onChange={handleInputChange}
+        />
+      </div>
+
+      {/* Country */}
+      <div className="fv-row mb-5">
+        <label className="fw-semibold mb-2">Country</label>
+        <input
+          type="text"
+          name="country"
+          className="form-control form-control-solid"
+          value={formData.country}
+          onChange={handleInputChange}
+        />
+      </div>
+
+      {/* Date of Birth */}
+      <div className="fv-row mb-5">
+        <label className="fw-semibold mb-2">Date of Birth</label>
+        <div className="d-flex gap-3">
+          <input
+            type="text"
+            name="dobDay"
+            placeholder="DD"
+            className="form-control form-control-solid"
+            value={formData.dobDay}
+            onChange={handleInputChange}
+          />
+          <input
+            type="text"
+            name="dobMonth"
+            placeholder="MM"
+            className="form-control form-control-solid"
+            value={formData.dobMonth}
+            onChange={handleInputChange}
+          />
+          <input
+            type="text"
+            name="dobYear"
+            placeholder="YYYY"
+            className="form-control form-control-solid"
+            value={formData.dobYear}
+            onChange={handleInputChange}
+          />
+        </div>
+      </div>
+
       {/* Gender */}
       <div className="fv-row mb-5">
         <label className="required fw-semibold mb-2">Gender</label>
@@ -262,7 +338,6 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
           value={formData.platform}
           onChange={handleInputChange}
         >
-          <option value="">Select</option>
           <option value="Facebook">Facebook</option>
           <option value="TikTok">TikTok</option>
           <option value="YouTube">YouTube</option>
@@ -285,7 +360,7 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
       )}
 
       {/* Special needs */}
-      <div className="form-check form-check-solid mb-5">
+      {/* <div className="form-check form-check-solid mb-5">
         <input
           type="checkbox"
           name="specialNeeds"
@@ -294,10 +369,10 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
           onChange={handleInputChange}
         />
         <label className="form-check-label">Special needs</label>
-      </div>
+      </div> */}
 
       {/* Terms */}
-      <div className="form-check form-check-solid mb-5">
+      {/* <div className="form-check form-check-solid mb-5">
         <input
           type="checkbox"
           name="acceptedTerms"
@@ -306,7 +381,7 @@ const StudentEditModalForm: FC<Props> = ({ studentId, onClose }) => {
           onChange={handleInputChange}
         />
         <label className="form-check-label">Accepted Terms</label>
-      </div>
+      </div> */}
 
       {/* Buttons */}
       <div className="text-end">
