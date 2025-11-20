@@ -37,7 +37,7 @@ const StudentInfoCell: FC<Props> = ({ student }) => {
       </div> */}
       <div className="d-flex flex-column">
         <a href="#" className="text-gray-800 text-hover-primary mb-1 fw-bold">
-          {student.name}
+          {student.username}
         </a>
         {/* {student.email && (
           <span className="text-muted fs-7">{student.email}</span>
