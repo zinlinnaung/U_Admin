@@ -15,9 +15,9 @@ const StudentDetailView: FC<Props> = ({ student, onClose }) => {
     return "•".repeat(8);
   };
 
-  const formatDOB = (day?: string, month?: string, year?: string) => {
-    if (!day || !month || !year) return "N/A";
-    return `${day} / ${month} / ${year}`;
+  const formatDOB = (year?: string, month?: string, day?: string) => {
+    if (!year || !month || !day) return "N/A";
+    return `${day.padStart(2, "0")} / ${month.padStart(2, "0")} / ${year}`;
   };
 
   const handleEdit = () => {

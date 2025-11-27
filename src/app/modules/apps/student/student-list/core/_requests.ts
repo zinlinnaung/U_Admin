@@ -1,149 +1,160 @@
-import axios, { AxiosResponse } from "axios";
-import { ID, Response } from "../../../../../../_metronic/helpers";
+import axios from "axios";
+import { ID } from "../../../../../../_metronic/helpers";
 import { Student, StudentsQueryResponse } from "./_models";
 
-const API_URL = import.meta.env.VITE_APP_THEME_API_URL;
-const STUDENT_URL = `${API_URL}/student`;
-const GET_STUDENTS_URL = `${API_URL}/students/query`;
+const API_URL = "https://mypadminapi.bitmyanmar.info/api/users";
 
-// Mock data
-let mockStudents: Student[] = [
-  {
-    id: "STU001" as unknown as ID,
-    username: "alicej",
-    password: "password123",
-    email: "alice.johnson@student.edu",
-    phone: "+959123456789",
-    displayName: "Alice Johnson",
-    region: "Yangon",
-    township: "Sanchaung",
-    country: "Myanmar",
-    dobDay: "12",
-    dobMonth: "05",
-    dobYear: "2001",
-    gender: "Female",
-    platform: "Facebook",
-    specialNeeds: false,
-    acceptedTerms: true,
-  },
-  {
-    id: "STU002" as unknown as ID,
-    username: "bobsmith",
-    password: "password123",
-    email: "bob.smith@student.edu",
-    phone: "+959987654321",
-    displayName: "Bob Smith",
-    region: "Mandalay",
-    township: "Chan Aye Thar San",
-    country: "Myanmar",
-    dobDay: "03",
-    dobMonth: "09",
-    dobYear: "2000",
-    gender: "Male",
-    platform: "TikTok",
-    specialNeeds: false,
-    acceptedTerms: true,
-  },
-];
+// Helper to convert Student to API body (send proper ISO string)
+// Helper to convert Student to API body (Prisma-safe)
+const mapStudentToApiBody = (student: Student) => {
+  // Build ISO date or null
+  const dateOfBirth =
+    student.dobYear && student.dobMonth && student.dobDay
+      ? new Date(
+          Number(student.dobYear),
+          Number(student.dobMonth) - 1, // JS months are 0-based
+          Number(student.dobDay)
+        ).toISOString()
+      : null;
 
-const getStudents = (query: string): Promise<StudentsQueryResponse> => {
-  console.log("🔥 getStudents - total:", mockStudents.length);
+  // Ensure firstName and lastName are safe
+  const [firstName = "", lastName = ""] = student.displayName
+    ? student.displayName.split(" ")
+    : ["", ""];
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        data: [...mockStudents],
-        payload: {
-          pagination: {
-            page: 1,
-            items_per_page: 10,
-            links: [
-              {
-                label: "&laquo; Previous",
-                page: null,
-                active: false,
-                url: null,
-              },
-              { label: "1", page: 1, active: true, url: null },
-              { label: "Next &raquo;", page: null, active: false, url: null },
-            ],
-          },
-        },
-      } as StudentsQueryResponse);
-    }, 500);
-  });
+  return {
+    email: student.email || "",
+    username: student.username || "",
+    phone: student.phone || "",
+    password: student.password || undefined, // undefined will skip Prisma update if empty
+    firstName,
+    lastName,
+    country: student.country || "",
+    city: student.region || "",
+    township: student.township || "",
+    dateOfBirth, // ISO string or null
+    gender: student.gender || "",
+    feedback: "", // optional
+    isActive: true,
+  };
 };
 
-const getStudentById = (id: ID): Promise<Student | undefined> => {
-  console.log("🔥 getStudentById:", id);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(mockStudents.find((stu) => stu.id === id));
-    }, 300);
-  });
+// Helper to parse API date to dobDay/dobMonth/dobYear
+const parseDateOfBirth = (dob?: string) => {
+  if (!dob) return { dobDay: "", dobMonth: "", dobYear: "" };
+  const date = new Date(dob);
+  return {
+    dobDay: String(date.getDate()).padStart(2, "0"),
+    dobMonth: String(date.getMonth() + 1).padStart(2, "0"),
+    dobYear: String(date.getFullYear()),
+  };
 };
 
-const createStudent = (student: Student): Promise<Student | undefined> => {
-  console.log("🔥 createStudent:", student);
+// Get all students
+const getStudents = async (): Promise<StudentsQueryResponse> => {
+  const response = await axios.get(API_URL);
+  const data: Student[] = response.data.map((user: any) => ({
+    id: user.id as ID,
+    username: user.username,
+    email: user.email,
+    phone: user.phone,
+    displayName: `${user.firstName} ${user.lastName}`,
+    region: user.city,
+    township: user.township,
+    country: user.country,
+    ...parseDateOfBirth(user.dateOfBirth),
+    gender: user.gender,
+    acceptedTerms: user.isActive,
+  }));
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newStudent: Student = {
-        ...student,
-        id: `STU${String(mockStudents.length + 1).padStart(
-          3,
-          "0"
-        )}` as unknown as ID,
-      };
-
-      mockStudents.push(newStudent);
-      console.log("✅ Created! Total now:", mockStudents.length);
-
-      resolve(newStudent);
-    }, 500);
-  });
+  return {
+    data,
+    payload: {
+      pagination: {
+        page: 1,
+        items_per_page: data.length as 10 | 30 | 50 | 100,
+        links: [],
+      },
+    },
+  };
 };
 
-const updateStudent = (student: Student): Promise<Student | undefined> => {
-  console.log("🔥 updateStudent:", student);
+// Get student by ID
+const getStudentById = async (id: ID): Promise<Student | undefined> => {
+  const response = await axios.get(`${API_URL}/${id}`);
+  const user = response.data;
+  if (!user) return undefined;
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const index = mockStudents.findIndex((stu) => stu.id === student.id);
-      if (index !== -1) {
-        mockStudents[index] = { ...mockStudents[index], ...student };
-        resolve(mockStudents[index]);
-        return;
-      }
-      resolve(undefined);
-    }, 500);
-  });
+  return {
+    id: user.id as ID,
+    username: user.username,
+    email: user.email,
+    phone: user.phone,
+    displayName: `${user.firstName} ${user.lastName}`,
+    region: user.city,
+    township: user.township,
+    country: user.country,
+    ...parseDateOfBirth(user.dateOfBirth),
+    gender: user.gender,
+    acceptedTerms: user.isActive,
+  };
 };
 
-const deleteStudent = (studentId: ID): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      mockStudents = mockStudents.filter((stu) => stu.id !== studentId);
-      resolve();
-    }, 500);
-  });
+// Create a student
+const createStudent = async (
+  student: Student
+): Promise<Student | undefined> => {
+  const body = mapStudentToApiBody(student);
+  const response = await axios.post(API_URL, body);
+  const user = response.data;
+
+  return {
+    id: user.id as ID,
+    username: user.username,
+    email: user.email,
+    phone: user.phone,
+    displayName: `${user.firstName} ${user.lastName}`,
+    region: user.city,
+    township: user.township,
+    country: user.country,
+    ...parseDateOfBirth(user.dateOfBirth),
+    gender: user.gender,
+    acceptedTerms: user.isActive,
+  };
 };
 
-const deleteSelectedStudents = (studentIds: Array<ID>): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      mockStudents = mockStudents.filter((stu) => !studentIds.includes(stu.id));
-      resolve();
-    }, 500);
-  });
+// Update a student
+const updateStudent = async (
+  student: Student
+): Promise<Student | undefined> => {
+  const body = mapStudentToApiBody(student);
+  const response = await axios.patch(`${API_URL}/${student.id}`, body);
+  const user = response.data;
+
+  return {
+    id: user.id as ID,
+    username: user.username,
+    email: user.email,
+    phone: user.phone,
+    displayName: `${user.firstName} ${user.lastName}`,
+    region: user.city,
+    township: user.township,
+    country: user.country,
+    ...parseDateOfBirth(user.dateOfBirth),
+    gender: user.gender,
+    acceptedTerms: user.isActive,
+  };
+};
+
+// Delete student
+const deleteStudent = async (id: ID): Promise<void> => {
+  await axios.delete(`${API_URL}/${id}`);
 };
 
 export {
   getStudents,
-  deleteStudent,
-  deleteSelectedStudents,
   getStudentById,
   createStudent,
   updateStudent,
+  deleteStudent,
 };

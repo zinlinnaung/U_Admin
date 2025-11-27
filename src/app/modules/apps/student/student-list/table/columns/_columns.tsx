@@ -141,21 +141,19 @@ export const studentsColumns: ColumnDef<Student>[] = [
   },
 
   {
-    header: (props) => (
-      <StudentCustomHeader
-        tableProps={props}
-        title="Date of Birth"
-        className="min-w-200px"
-      />
-    ),
-    id: "dob",
-    sortingFn: dobSortingFn, // <-- Enables Sorting (Custom Logic)
+    header: "Date of Birth",
+    id: "dateOfBirth",
+    accessorFn: (student: Student) => student, // pass whole student object
     cell: (info) => {
-      const s = info.row.original;
-      return <span>{`${s.dobDay}-${s.dobMonth}-${s.dobYear}`}</span>;
+      const s = info.getValue<Student>();
+      if (!s.dobDay || !s.dobMonth || !s.dobYear) return "N/A";
+      return `${s.dobDay.padStart(2, "0")}/${s.dobMonth.padStart(2, "0")}/${
+        s.dobYear
+      }`;
     },
+    sortingFn: dobSortingFn, // keep your custom sort function
+    minSize: 120,
   },
-
   {
     header: (props) => (
       <StudentCustomHeader
