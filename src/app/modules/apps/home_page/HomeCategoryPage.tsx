@@ -1,11 +1,11 @@
 import { FC, useState, useEffect, useMemo } from "react";
+import axios from "axios";
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
   flexRender,
   ColumnDef,
-  Row,
   SortingState,
 } from "@tanstack/react-table";
 
@@ -15,92 +15,74 @@ import {
   KTIcon,
   KTSVG,
 } from "../../../../_metronic/helpers";
-
 import { Modal } from "react-bootstrap";
 
 // ----------------------
 // TYPES
 // ----------------------
-type CourseCategory = {
-  id?: number;
+type Course = {
+  id: string;
   name: string;
-  courses: string[];
-  createdAt?: string;
-  updatedAt?: string;
+};
+
+type HomeCategoryItem = {
+  id: string;
+  homeCategoryId: string;
+  courseId: string;
+  type: string;
+};
+
+type HomeCategory = {
+  id: string;
+  name: string;
+  items: HomeCategoryItem[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 // ----------------------
-// MOCK CATEGORY DATA
-// ----------------------
-const mockCategories: CourseCategory[] = [
-  {
-    id: 1,
-    name: "Digital Literacy",
-    courses: ["Basic Computer Skills", "Internet 101"],
-    createdAt: "2024-08-01",
-    updatedAt: "2024-08-05",
-  },
-  {
-    id: 2,
-    name: "Web Development",
-    courses: ["HTML & CSS", "React Basics", "Node.js Intro"],
-    createdAt: "2024-09-02",
-    updatedAt: "2024-09-06",
-  },
-  {
-    id: 3,
-    name: "Data Science",
-    courses: ["Python", "Machine Learning", "Data Visualization"],
-    createdAt: "2024-09-10",
-    updatedAt: "2024-09-15",
-  },
-];
-
-// ----------------------
-// MOCK COURSE LIST FOR AUTOCOMPLETE
-// ----------------------
-const mockAllCourses = [
-  "Python",
-  "Machine Learning",
-  "Data Visualization",
-  "HTML & CSS",
-  "React Basics",
-  "Node.js Intro",
-  "Basic Computer Skills",
-  "Internet 101",
-  "Cybersecurity Basics",
-  "Java Programming",
-  "C++ Fundamentals",
-  "SQL for Beginners",
-  "Cloud Essentials",
-  "Docker Essentials",
-  "AI for Beginners",
-];
-
-// ----------------------
-// MAIN COMPONENT
+// COMPONENT
 // ----------------------
 const HomeCategoryPage: FC = () => {
-  const [categories, setCategories] = useState<CourseCategory[]>([]);
+  const [categories, setCategories] = useState<HomeCategory[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [showModal, setShowModal] = useState(false);
-
-  const [editingCategory, setEditingCategory] = useState<CourseCategory | null>(
+  const [editingCategory, setEditingCategory] = useState<HomeCategory | null>(
     null
   );
 
-  const [form, setForm] = useState<CourseCategory>({
+  const [form, setForm] = useState<{ name: string; courseIds: string[] }>({
     name: "",
-    courses: [],
+    courseIds: [],
   });
 
-  // New states for autocomplete
   const [courseInput, setCourseInput] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Course[]>([]);
 
+  // ----------------------
+  // FETCH DATA
+  // ----------------------
   useEffect(() => {
-    setCategories(mockCategories);
+    const fetchData = async () => {
+      try {
+        const [catRes, courseRes] = await Promise.all([
+          axios.get<HomeCategory[]>(
+            "https://mypadminapi.bitmyanmar.info/api/home-category"
+          ),
+          axios.get<Course[]>(
+            "https://mypadminapi.bitmyanmar.info/api/courses"
+          ),
+        ]);
+
+        setCategories(catRes.data);
+        setAllCourses(courseRes.data);
+      } catch (err) {
+        console.error("Failed to fetch data", err);
+      }
+    };
+    fetchData();
   }, []);
 
   // ----------------------
@@ -112,155 +94,134 @@ const HomeCategoryPage: FC = () => {
 
   const handleCourseInput = (value: string) => {
     setCourseInput(value);
-
     if (!value.trim()) {
       setSuggestions([]);
       return;
     }
-
-    const filtered = mockAllCourses.filter(
+    const filtered = allCourses.filter(
       (c) =>
-        c.toLowerCase().includes(value.toLowerCase()) &&
-        !form.courses.includes(c)
+        c.name.toLowerCase().includes(value.toLowerCase()) &&
+        !form.courseIds.includes(c.id)
     );
-
     setSuggestions(filtered);
   };
 
-  const handleAddCourse = (course: string) => {
-    if (!course.trim()) return;
-
-    setForm({ ...form, courses: [...form.courses, course] });
+  const handleAddCourse = (course: Course) => {
+    setForm({ ...form, courseIds: [...form.courseIds, course.id] });
     setCourseInput("");
     setSuggestions([]);
   };
 
-  const handleRemoveCourse = (course: string) => {
+  const handleRemoveCourse = (courseId: string) => {
     setForm({
       ...form,
-      courses: form.courses.filter((c) => c !== course),
+      courseIds: form.courseIds.filter((id) => id !== courseId),
     });
   };
 
-  const handleSave = () => {
-    if (!form.name.trim()) {
-      alert("Name is required.");
-      return;
-    }
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert("Name is required.");
+    const body = {
+      name: form.name,
+      itemIds: form.courseIds,
+    };
 
-    const now = new Date().toISOString().split("T")[0];
-
-    if (editingCategory?.id) {
-      // update
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === editingCategory.id
-            ? {
-                ...form,
-                id: editingCategory.id,
-                createdAt: cat.createdAt,
-                updatedAt: now,
-              }
-            : cat
-        )
+    try {
+      if (editingCategory) {
+        // Update
+        await axios.put(
+          `https://mypadminapi.bitmyanmar.info/api/home-category/${editingCategory.id}`,
+          body
+        );
+      } else {
+        // Create
+        await axios.post(
+          "https://mypadminapi.bitmyanmar.info/api/home-category",
+          body
+        );
+      }
+      // Refresh
+      const res = await axios.get<HomeCategory[]>(
+        "https://mypadminapi.bitmyanmar.info/api/home-category"
       );
-    } else {
-      // create new
-      const newCat = {
-        ...form,
-        id: Date.now(),
-        createdAt: now,
-        updatedAt: now,
-      };
-      setCategories((p) => [...p, newCat]);
+      setCategories(res.data);
+      handleClose();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save category");
     }
-
-    handleClose();
   };
 
-  const handleEdit = (id?: number) => {
+  const handleEdit = (id: string) => {
     const cat = categories.find((c) => c.id === id);
     if (!cat) return;
-
     setEditingCategory(cat);
-    setForm(cat);
+    setForm({ name: cat.name, courseIds: cat.items.map((i) => i.courseId) });
     setShowModal(true);
   };
 
-  const handleDelete = (id?: number) => {
-    if (window.confirm("Delete this category?")) {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this category?")) return;
+    try {
+      await axios.delete(
+        `https://mypadminapi.bitmyanmar.info/api/home-category/${id}`
+      );
       setCategories((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete category");
     }
   };
 
   const handleClose = () => {
     setEditingCategory(null);
     setShowModal(false);
-    setForm({ name: "", courses: [] });
+    setForm({ name: "", courseIds: [] });
     setCourseInput("");
     setSuggestions([]);
   };
 
+  // ----------------------
+  // FILTERED DATA
+  // ----------------------
   const filteredData = useMemo(() => {
     if (!search) return categories;
     return categories.filter(
       (c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.courses.some((course) =>
-          course.toLowerCase().includes(search.toLowerCase())
-        )
+        c.items.some((item) => {
+          const course = allCourses.find((c) => c.id === item.courseId);
+          return course?.name.toLowerCase().includes(search.toLowerCase());
+        })
     );
-  }, [search, categories]);
+  }, [search, categories, allCourses]);
 
   // ----------------------
-  // TABLE CONFIG
+  // TABLE COLUMNS
   // ----------------------
-  const columns = useMemo<ColumnDef<CourseCategory>[]>(
+  const columns = useMemo<ColumnDef<HomeCategory>[]>(
     () => [
       { header: "Name", accessorKey: "name" },
       {
         header: "Courses",
-        accessorKey: "courses",
-        cell: ({ row }) => {
-          const id = row.original.id;
-
-          return (
-            <div className="d-flex flex-wrap gap-2">
-              {row.original.courses.map((course, index) => (
+        accessorKey: "items",
+        cell: ({ row }) => (
+          <div className="d-flex flex-wrap gap-2">
+            {row.original.items.map((item) => {
+              const course = allCourses.find((c) => c.id === item.courseId);
+              if (!course) return null;
+              return (
                 <span
-                  key={index}
+                  key={item.id}
                   className="badge badge-light-primary d-flex align-items-center px-3 py-2"
                   style={{ fontSize: 13 }}
                 >
-                  {course}
-                  <span
-                    onClick={() =>
-                      setCategories((prev) =>
-                        prev.map((cat) =>
-                          cat.id === id
-                            ? {
-                                ...cat,
-                                courses: cat.courses.filter(
-                                  (c) => c !== course
-                                ),
-                              }
-                            : cat
-                        )
-                      )
-                    }
-                    style={{
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                      marginLeft: 6,
-                    }}
-                  >
-                    ×
-                  </span>
+                  {course.name}
                 </span>
-              ))}
-            </div>
-          );
-        },
+              );
+            })}
+          </div>
+        ),
       },
       { header: "Created", accessorKey: "createdAt" },
       { header: "Updated", accessorKey: "updatedAt" },
@@ -274,7 +235,6 @@ const HomeCategoryPage: FC = () => {
             >
               <KTIcon iconName="pencil" className="fs-3" />
             </button>
-
             <button
               className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
               onClick={() => handleDelete(row.original.id)}
@@ -285,7 +245,7 @@ const HomeCategoryPage: FC = () => {
         ),
       },
     ],
-    []
+    [allCourses]
   );
 
   const table = useReactTable({
@@ -304,8 +264,7 @@ const HomeCategoryPage: FC = () => {
     <div className="m-4 bg-white p-6 rounded shadow-sm">
       {/* Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-5">
-        <h2 className="fw-bold text-dark mb-3">Course Categories</h2>
-
+        <h2 className="fw-bold text-dark mb-3">Home Categories</h2>
         <div className="d-flex align-items-center gap-3">
           <div className="position-relative">
             <KTSVG
@@ -320,7 +279,6 @@ const HomeCategoryPage: FC = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
           <button
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
@@ -353,7 +311,6 @@ const HomeCategoryPage: FC = () => {
                   </tr>
                 ))}
               </thead>
-
               <tbody className="text-dark fw-semibold">
                 {table.getRowModel().rows.length ? (
                   table.getRowModel().rows.map((row) => (
@@ -388,7 +345,6 @@ const HomeCategoryPage: FC = () => {
             {editingCategory ? "Edit Category" : "Add New Category"}
           </Modal.Title>
         </Modal.Header>
-
         <Modal.Body>
           <div className="container">
             {/* Name */}
@@ -410,21 +366,25 @@ const HomeCategoryPage: FC = () => {
               <label className="form-label">Courses</label>
 
               {/* Existing Courses */}
-              {form.courses.length > 0 ? (
-                form.courses.map((course, i) => (
-                  <div
-                    key={i}
-                    className="d-flex justify-content-between align-items-center mb-2"
-                  >
-                    <span>{course}</span>
-                    <button
-                      className="btn btn-sm btn-light-danger"
-                      onClick={() => handleRemoveCourse(course)}
+              {form.courseIds.length > 0 ? (
+                form.courseIds.map((id) => {
+                  const course = allCourses.find((c) => c.id === id);
+                  if (!course) return null;
+                  return (
+                    <div
+                      key={id}
+                      className="d-flex justify-content-between align-items-center mb-2"
                     >
-                      Remove
-                    </button>
-                  </div>
-                ))
+                      <span>{course.name}</span>
+                      <button
+                        className="btn btn-sm btn-light-danger"
+                        onClick={() => handleRemoveCourse(id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-muted small mb-2">
                   No courses added yet.
@@ -444,7 +404,6 @@ const HomeCategoryPage: FC = () => {
               {suggestions.length > 0 && (
                 <div
                   className="menu menu-sub menu-sub-dropdown show w-100 mt-1 shadow-sm"
-                  data-kt-menu="true"
                   style={{
                     position: "absolute",
                     zIndex: 1000,
@@ -452,14 +411,13 @@ const HomeCategoryPage: FC = () => {
                     overflowY: "auto",
                   }}
                 >
-                  {suggestions.map((course, index) => (
+                  {suggestions.map((course) => (
                     <div
-                      key={index}
+                      key={course.id}
                       className="menu-item px-3 py-2 cursor-pointer hover-bg-light-primary"
-                      style={{ cursor: "pointer" }}
                       onClick={() => handleAddCourse(course)}
                     >
-                      {course}
+                      {course.name}
                     </div>
                   ))}
                 </div>
