@@ -4,6 +4,7 @@ import { ID } from "../../../../../../../_metronic/helpers";
 
 import { useListView } from "../../core/ListViewProvider";
 import { StudentDetailModal } from "../../components/detail/StudentDetailModal";
+import { deleteStudent } from "../../core/_requests"; // import delete function
 
 type Props = {
   id?: ID;
@@ -11,7 +12,7 @@ type Props = {
 
 const StudentActionsCell: FC<Props> = ({ id }) => {
   const [showDetail, setShowDetail] = useState(false);
-  const { setItemIdForUpdate } = useListView();
+  const { setItemIdForUpdate } = useListView(); // get refetch to reload table
 
   useEffect(() => {
     MenuComponent.reinitialization();
@@ -33,9 +34,16 @@ const StudentActionsCell: FC<Props> = ({ id }) => {
     console.log("View grades for:", id);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (!id) return;
     if (window.confirm("Are you sure you want to delete this student?")) {
-      console.log("Delete student:", id);
+      try {
+        await deleteStudent(id); // call API
+        alert("Student deleted successfully!");
+      } catch (err) {
+        console.error(err);
+        alert("Failed to delete student. Try again.");
+      }
     }
   };
 
@@ -57,43 +65,28 @@ const StudentActionsCell: FC<Props> = ({ id }) => {
       >
         <div className="menu-item px-3">
           <a className="menu-link px-3" onClick={handleView}>
-            <i className="ki-duotone ki-eye fs-5 me-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-            </i>
+            <i className="ki-duotone ki-eye fs-5 me-2"></i>
             View Details
           </a>
         </div>
 
         <div className="menu-item px-3">
           <a className="menu-link px-3" onClick={handleEdit}>
-            <i className="ki-duotone ki-pencil fs-5 me-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-            </i>
+            <i className="ki-duotone ki-pencil fs-5 me-2"></i>
             Edit Student
           </a>
         </div>
 
         <div className="menu-item px-3">
           <a className="menu-link px-3" onClick={handleEnrollCourse}>
-            <i className="ki-duotone ki-book fs-5 me-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-            </i>
+            <i className="ki-duotone ki-book fs-5 me-2"></i>
             Enroll in Course
           </a>
         </div>
 
         <div className="menu-item px-3">
           <a className="menu-link px-3" onClick={handleViewGrades}>
-            <i className="ki-duotone ki-chart-simple fs-5 me-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-              <span className="path4"></span>
-            </i>
+            <i className="ki-duotone ki-chart-simple fs-5 me-2"></i>
             View Grades
           </a>
         </div>
@@ -102,13 +95,7 @@ const StudentActionsCell: FC<Props> = ({ id }) => {
 
         <div className="menu-item px-3">
           <a className="menu-link px-3 text-danger" onClick={handleDelete}>
-            <i className="ki-duotone ki-trash fs-5 me-2">
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-              <span className="path4"></span>
-              <span className="path5"></span>
-            </i>
+            <i className="ki-duotone ki-trash fs-5 me-2"></i>
             Delete Student
           </a>
         </div>
