@@ -50,6 +50,7 @@
     "react-router-dom": "^7.5.3",
     "react-select": "^5.10.1",
     "react-svg": "^16.3.0",
+    "react-toastify": "^11.0.5",
     "react-topbar-progress-indicator": "4.1.1",
     "socicon": "3.0.5",
     "yup": "^1.6.1"
