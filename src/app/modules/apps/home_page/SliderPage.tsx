@@ -61,7 +61,7 @@ export const SliderPage: React.FC = () => {
     }
 
     try {
-      let res;
+      let res: AxiosResponse<any, any>;
 
       if (editingSlider) {
         // Editing: use PATCH with optional base64 image

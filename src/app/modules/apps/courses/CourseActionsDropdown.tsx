@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 type Props = {
-  courseId?: number;
+  courseId?: string; // FIXED (UUID instead of number)
   courseTitle?: string;
-  onDelete: (id?: number) => void;
-  onEdit?: (id?: number) => void;
+  onDelete: (id?: string) => void;
+  onEdit?: (id?: string) => void;
 };
 
 export const CourseActionsDropdown: React.FC<Props> = ({
@@ -30,13 +30,13 @@ export const CourseActionsDropdown: React.FC<Props> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Auto-detect if dropdown should open upward or downward
+  // Auto-detect dropdown direction
   useEffect(() => {
     if (open && ref.current) {
       const rect = ref.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const dropdownHeight = 140; // estimate
+      const dropdownHeight = 140;
       setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > dropdownHeight);
     }
   }, [open]);
@@ -68,26 +68,29 @@ export const CourseActionsDropdown: React.FC<Props> = ({
             zIndex: 1050,
           }}
         >
+          {/* EDIT */}
           <button
             className="dropdown-item d-flex align-items-center"
             onClick={() => {
-              onEdit?.(courseId);
+              if (courseId) onEdit?.(courseId);
               setOpen(false);
             }}
           >
             <i className="bi bi-pencil-square me-2"></i> Edit
           </button>
 
+          {/* DELETE */}
           <button
             className="dropdown-item d-flex align-items-center"
             onClick={() => {
-              onDelete(courseId);
+              if (courseId) onDelete(courseId);
               setOpen(false);
             }}
           >
             <i className="bi bi-trash me-2"></i> Delete
           </button>
 
+          {/* SECTIONS */}
           <button
             className="dropdown-item d-flex align-items-center"
             onClick={() => {
