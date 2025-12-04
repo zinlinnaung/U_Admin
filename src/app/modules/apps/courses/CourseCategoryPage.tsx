@@ -1,4 +1,5 @@
 import { FC, useState, useEffect, useMemo } from "react";
+import axios from "axios";
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,179 +20,224 @@ import { Modal } from "react-bootstrap";
 // ----------------------
 // TYPES
 // ----------------------
+// Matches the API response structure
 type CourseCategory = {
-  id?: number;
+  id: string;
   name: string;
-  shortName: string;
-  description?: string;
+  type: string; // e.g., "NORMAL", "FEATURE"
+  isDeleted: boolean;
   createdAt?: string;
   updatedAt?: string;
+  // Optional: include sub properties if you need to display them
+  subCategories?: any[];
+  courses?: any[];
+};
+
+// Matches the Create/Update Payload
+type CategoryPayload = {
+  name: string;
+  type: string;
+  isDeleted: boolean;
 };
 
 // ----------------------
-// MOCK DATA
+// API CONFIG
 // ----------------------
-const mockCategories: CourseCategory[] = [
-  {
-    id: 1,
-    name: "Digital Literacy",
-    shortName: "DIGI",
-    description: "Courses that introduce basic digital skills.",
-    createdAt: "2024-08-01",
-    updatedAt: "2024-08-05",
-  },
-  {
-    id: 2,
-    name: "Web Development",
-    shortName: "WEBDEV",
-    description: "Courses related to frontend and backend development.",
-    createdAt: "2024-09-02",
-    updatedAt: "2024-09-06",
-  },
-  {
-    id: 3,
-    name: "Data Science",
-    shortName: "DATASCI",
-    description: "Courses on analytics, machine learning, and AI.",
-    createdAt: "2024-09-10",
-    updatedAt: "2024-09-15",
-  },
-];
+const API_URL = "https://mypadminapi.bitmyanmar.info/api/categories";
 
 // ----------------------
 // MAIN COMPONENT
 // ----------------------
 const CourseCategoryPage: FC = () => {
   const [categories, setCategories] = useState<CourseCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
+
+  // Modal State
   const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CourseCategory | null>(
-    null
-  );
-  const [form, setForm] = useState<CourseCategory>({
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Form State
+  const [form, setForm] = useState<CategoryPayload>({
     name: "",
-    shortName: "",
-    description: "",
+    type: "NORMAL", // Default value
+    isDeleted: false,
   });
 
-  // Load mock data
+  // ----------------------
+  // API ACTIONS
+  // ----------------------
+  const fetchCategories = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get<CourseCategory[]>(API_URL);
+      // Filter out deleted items if necessary, or show all
+      setCategories(response.data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      alert("Failed to load categories");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial Load
   useEffect(() => {
-    setCategories(mockCategories);
+    fetchCategories();
   }, []);
 
   // ----------------------
   // HANDLERS
   // ----------------------
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const value =
+      e.target.type === "checkbox"
+        ? (e.target as HTMLInputElement).checked
+        : e.target.value;
+
+    setForm({ ...form, [e.target.name]: value });
   };
 
-  const handleSave = () => {
-    if (!form.name.trim() || !form.shortName.trim()) {
-      alert("Please fill in required fields.");
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      alert("Please fill in the category name.");
       return;
     }
 
-    const now = new Date().toISOString().split("T")[0];
+    setIsLoading(true);
+    try {
+      if (editingId) {
+        // UPDATE Existing (Assuming PUT endpoint exists at /api/categories/:id)
+        // If your API uses a different method for update, adjust here.
+        await axios.put(`${API_URL}/${editingId}`, form);
+        alert("Category updated successfully!");
+      } else {
+        // CREATE New
+        // Payload matches: { "name": "string", "type": {}, "isDeleted": true }
+        await axios.post(API_URL, form);
+        alert("Category created successfully!");
+      }
 
-    if (editingCategory?.id) {
-      // Update existing
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === editingCategory.id
-            ? {
-                ...form,
-                id: editingCategory.id,
-                createdAt: cat.createdAt,
-                updatedAt: now,
-              }
-            : cat
-        )
-      );
-    } else {
-      // Create new
-      const newCategory = {
-        ...form,
-        id: Date.now(),
-        createdAt: now,
-        updatedAt: now,
-      };
-      setCategories((prev) => [...prev, newCategory]);
+      // Refresh table and close modal
+      await fetchCategories();
+      handleClose();
+    } catch (error) {
+      console.error("Error saving category:", error);
+      alert("Failed to save category. Check console for details.");
+    } finally {
+      setIsLoading(false);
     }
-
-    handleClose();
   };
 
-  const handleEdit = (id?: number) => {
-    const cat = categories.find((c) => c.id === id);
-    if (!cat) return;
-    setEditingCategory(cat);
-    setForm(cat);
+  const handleEdit = (category: CourseCategory) => {
+    setEditingId(category.id);
+    setForm({
+      name: category.name,
+      type: category.type,
+      isDeleted: category.isDeleted,
+    });
     setShowModal(true);
   };
 
-  const handleDelete = (id?: number) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this category?"))
+      return;
+
+    setIsLoading(true);
+    try {
+      // Assuming DELETE endpoint exists at /api/categories/:id
+      await axios.delete(`${API_URL}/${id}`);
       setCategories((prev) => prev.filter((c) => c.id !== id));
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      alert("Failed to delete category.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleClose = () => {
-    setEditingCategory(null);
+    setEditingId(null);
     setShowModal(false);
     setForm({
       name: "",
-      shortName: "",
-      description: "",
+      type: "NORMAL",
+      isDeleted: false,
     });
   };
 
+  // ----------------------
+  // TABLE LOGIC
+  // ----------------------
   const filteredData = useMemo(() => {
     if (!search) return categories;
     return categories.filter(
       (c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.shortName.toLowerCase().includes(search.toLowerCase()) ||
-        c.description?.toLowerCase().includes(search.toLowerCase())
+        c.type.toLowerCase().includes(search.toLowerCase())
     );
   }, [search, categories]);
 
-  // ----------------------
-  // TABLE CONFIG
-  // ----------------------
   const columns = useMemo<ColumnDef<CourseCategory>[]>(
     () => [
-      { header: "Name", accessorKey: "name" },
-      { header: "Short Name", accessorKey: "shortName" },
       {
-        header: "Description",
-        accessorKey: "description",
+        header: "Name",
+        accessorKey: "name",
         cell: ({ getValue }) => (
-          <span className="text-muted small">
-            {getValue<string>()?.slice(0, 60) || "-"}
+          <span className="fw-bold">{getValue<string>()}</span>
+        ),
+      },
+      {
+        header: "Type",
+        accessorKey: "type",
+        cell: ({ getValue }) => (
+          <span
+            className={`badge ${
+              getValue<string>() === "FEATURE"
+                ? "badge-light-warning"
+                : "badge-light-primary"
+            }`}
+          >
+            {getValue<string>()}
+          </span>
+        ),
+      },
+      {
+        header: "Status",
+        accessorKey: "isDeleted",
+        cell: ({ getValue }) => (
+          <span
+            className={`badge ${
+              getValue<boolean>() ? "badge-light-danger" : "badge-light-success"
+            }`}
+          >
+            {getValue<boolean>() ? "Deleted" : "Active"}
           </span>
         ),
       },
       {
         header: "Created At",
         accessorKey: "createdAt",
-        cell: ({ getValue }) => <span>{getValue<string>() || "-"}</span>,
-      },
-      {
-        header: "Updated At",
-        accessorKey: "updatedAt",
-        cell: ({ getValue }) => <span>{getValue<string>() || "-"}</span>,
+        cell: ({ getValue }) => {
+          const dateStr = getValue<string>();
+          return (
+            <span>
+              {dateStr ? new Date(dateStr).toLocaleDateString() : "-"}
+            </span>
+          );
+        },
       },
       {
         header: "Actions",
-        cell: ({ row }: { row: Row<CourseCategory> }) => (
+        id: "actions",
+        cell: ({ row }) => (
           <div className="text-end">
             <button
               className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-2"
-              onClick={() => handleEdit(row.original.id)}
+              onClick={() => handleEdit(row.original)}
             >
               <KTIcon iconName="pencil" className="fs-3" />
             </button>
@@ -242,8 +288,9 @@ const CourseCategoryPage: FC = () => {
           <button
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
+            disabled={isLoading}
           >
-            Add Category
+            {isLoading ? "Loading..." : "Add Category"}
           </button>
         </div>
       </div>
@@ -251,7 +298,10 @@ const CourseCategoryPage: FC = () => {
       {/* Table */}
       <KTCard>
         <KTCardBody className="py-4">
-          <div className="table-responsive" style={{ height: "50vh" }}>
+          <div
+            className="table-responsive"
+            style={{ height: "60vh", overflowY: "auto" }}
+          >
             <table className="table align-middle table-row-dashed fs-6 gy-5">
               <thead>
                 {table.getHeaderGroups().map((hg) => (
@@ -279,7 +329,13 @@ const CourseCategoryPage: FC = () => {
                 ))}
               </thead>
               <tbody className="text-dark fw-semibold">
-                {table.getRowModel().rows.length > 0 ? (
+                {isLoading && categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length} className="text-center py-5">
+                      Loading data...
+                    </td>
+                  </tr>
+                ) : table.getRowModel().rows.length > 0 ? (
                   table.getRowModel().rows.map((row) => (
                     <tr key={row.id}>
                       {row.getVisibleCells().map((cell) => (
@@ -306,47 +362,55 @@ const CourseCategoryPage: FC = () => {
       </KTCard>
 
       {/* Modal */}
-      <Modal show={showModal} onHide={handleClose} size="lg" centered>
+      <Modal show={showModal} onHide={handleClose} centered>
         <Modal.Header closeButton>
           <Modal.Title>
-            {editingCategory ? "Edit Category" : "Add New Category"}
+            {editingId ? "Edit Category" : "Add New Category"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div className="container">
-            <div className="row mb-4">
-              <div className="col-md-6">
-                <label className="form-label required">Category Name</label>
-                <input
-                  name="name"
-                  className="form-control form-control-solid"
-                  value={form.name}
-                  onChange={handleChange}
-                  placeholder="e.g. Frontend Development"
-                />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label required">Short Name</label>
-                <input
-                  name="shortName"
-                  className="form-control form-control-solid"
-                  value={form.shortName}
-                  onChange={handleChange}
-                  placeholder="e.g. FRONTEND"
-                />
-              </div>
+            {/* Name Field */}
+            <div className="mb-4">
+              <label className="form-label required">Category Name</label>
+              <input
+                name="name"
+                className="form-control form-control-solid"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="e.g. Language"
+              />
             </div>
 
+            {/* Type Field */}
             <div className="mb-4">
-              <label className="form-label">Description</label>
-              <textarea
-                name="description"
-                className="form-control form-control-solid"
-                rows={3}
-                value={form.description || ""}
+              <label className="form-label required">Type</label>
+              <select
+                name="type"
+                className="form-select form-select-solid"
+                value={form.type}
                 onChange={handleChange}
-                placeholder="Short description of this category..."
-              />
+              >
+                <option value="NORMAL">NORMAL</option>
+                <option value="FEATURE">FEATURE</option>
+              </select>
+            </div>
+
+            {/* Is Deleted Field */}
+            <div className="mb-4">
+              <div className="form-check form-check-solid form-switch">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  name="isDeleted"
+                  checked={form.isDeleted}
+                  onChange={handleChange}
+                  id="isDeletedCheck"
+                />
+                <label className="form-check-label" htmlFor="isDeletedCheck">
+                  Is Deleted?
+                </label>
+              </div>
             </div>
           </div>
         </Modal.Body>
@@ -354,8 +418,12 @@ const CourseCategoryPage: FC = () => {
           <button className="btn btn-light" onClick={handleClose}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={handleSave}>
-            Save Category
+          <button
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : "Save Changes"}
           </button>
         </Modal.Footer>
       </Modal>
