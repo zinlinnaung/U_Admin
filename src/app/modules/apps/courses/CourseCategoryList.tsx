@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   DragDropContext,
   Droppable,
@@ -12,29 +13,10 @@ type Activity = { id: string; name: string };
 type Category = { id: string; title: string; activities: Activity[] };
 
 const CourseCategoryList: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>([
-    {
-      id: "cat-1",
-      title: "သင်ခန်းစာ ၁ - မားသားဘုတ်အကြောင်းမိတ်ဆက်",
-      activities: [
-        {
-          id: "act-1",
-          name: "ချိတ်ဆက်မှုနည်းပညာ ဆိုတာဘာလဲ။ ဘာကြောင့်အရေးကြီးတာလဲ",
-        },
-        { id: "act-2", name: "ကြိုးတပ်ချိတ်ဆက်မှုနည်းပညာ" },
-        { id: "act-3", name: "တတ်မြောက်မှုစစ်ဆေးခြင်း" },
-      ],
-    },
-    {
-      id: "cat-2",
-      title: "သင်ခန်းစာ (၂) - ကွန်ပျူတာ Port နှင့် Cable ကြိုးများ",
-      activities: [
-        { id: "act-4", name: "Form Factor Overview" },
-        { id: "act-5", name: "ATX vs Micro ATX vs Mini ITX" },
-      ],
-    },
-  ]);
+  const [searchParams] = useSearchParams();
+  const courseId = searchParams.get("id"); // Get courseId from URL query
 
+  const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null
   );
@@ -43,6 +25,38 @@ const CourseCategoryList: React.FC = () => {
   );
   const [tempTitle, setTempTitle] = useState<string>("");
 
+  // Fetch course sections when courseId is available
+  useEffect(() => {
+    if (!courseId) return;
+
+    const fetchCourse = async () => {
+      try {
+        const res = await fetch(
+          `https://mypadminapi.bitmyanmar.info/api/courses/${courseId}`
+        );
+        const data = await res.json();
+
+        // Map API CourseSection to your local Category structure including activities
+        const mappedCategories: Category[] = (data.CourseSection || []).map(
+          (sec: any) => ({
+            id: sec.id,
+            title: sec.title,
+            activities: (sec.activities || []).map((act: any) => ({
+              id: act.id,
+              name: act.title, // map title from API to name
+            })),
+          })
+        );
+        setCategories(mappedCategories);
+      } catch (err) {
+        console.error("Failed to fetch course sections:", err);
+      }
+    };
+
+    fetchCourse();
+  }, [courseId]);
+
+  // --- Handlers for editing / adding / saving ---
   const handleTitleEdit = (id: string, title: string) => {
     setEditingCategoryId(id);
     setTempTitle(title);
@@ -79,11 +93,7 @@ const CourseCategoryList: React.FC = () => {
   const handleAddCategory = () => {
     setCategories((prev) => [
       ...prev,
-      {
-        id: `cat-${Date.now()}`,
-        title: "New Lesson",
-        activities: [],
-      },
+      { id: `cat-${Date.now()}`, title: "New Section", activities: [] },
     ]);
   };
 
@@ -103,6 +113,7 @@ const CourseCategoryList: React.FC = () => {
     );
   };
 
+  // --- Drag and Drop ---
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, type } = result;
     if (!destination) return;
@@ -191,7 +202,6 @@ const CourseCategoryList: React.FC = () => {
                             <h3 className="card-title fw-bold fs-4 text-dark mb-0">
                               {category.title}
                             </h3>
-
                             <button
                               className="btn btn-sm btn-light"
                               onClick={(e) => {
@@ -235,7 +245,6 @@ const CourseCategoryList: React.FC = () => {
                                         : ""
                                     }`}
                                   >
-                                    {/* LEFT SIDE: name + rename */}
                                     <div className="d-flex align-items-center gap-3">
                                       {editingActivityId === act.id ? (
                                         <input
@@ -266,7 +275,6 @@ const CourseCategoryList: React.FC = () => {
                                         </span>
                                       )}
 
-                                      {/* Rename icon */}
                                       {!editingActivityId && (
                                         <button
                                           className="btn btn-sm btn-light p-1"
@@ -282,7 +290,6 @@ const CourseCategoryList: React.FC = () => {
                                         </button>
                                       )}
 
-                                      {/* ⭐ NEW: OPEN ACTIVITY PAGE */}
                                       <button
                                         className="btn btn-sm btn-light p-1"
                                         onClick={(e) => {
