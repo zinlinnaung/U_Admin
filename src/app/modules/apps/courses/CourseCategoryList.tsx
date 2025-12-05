@@ -294,8 +294,11 @@ const CourseCategoryList: React.FC = () => {
                                         className="btn btn-sm btn-light p-1"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          window.location.href =
-                                            "/apps/course/activity";
+                                          // Updated Routing Logic
+                                          // We pass both course ID and the specific activity ID
+                                          const targetUrl = `/apps/course/activity?id=${courseId}&activityId=${act.id}`;
+                                          window.location.href = targetUrl;
+                                          // Note: In a real React app, prefer: navigate(targetUrl) using useNavigate() hook
                                         }}
                                       >
                                         <i className="bi bi-box-arrow-up-right text-info"></i>
