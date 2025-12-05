@@ -74,8 +74,8 @@ const CoursePage: FC = () => {
     previewImage: null,
     previewVideo: null,
     description: "",
-    categoryId: null,
-    subCategoryId: null,
+    categoryId: "", // Initialize as empty string or null
+    subCategoryId: "",
     parentCourseId: null,
     duration: 40,
     videoCount: 0,
@@ -158,6 +158,7 @@ const CoursePage: FC = () => {
   // Handlers
   // ----------------------
   const openCreateModal = () => {
+    console.log("Opening Create Modal"); // Debugging
     setEditingCourse(null);
     setForm({
       name: "",
@@ -165,8 +166,8 @@ const CoursePage: FC = () => {
       previewImage: null,
       previewVideo: null,
       description: "",
-      categoryId: null,
-      subCategoryId: null,
+      categoryId: "",
+      subCategoryId: "",
       parentCourseId: null,
       duration: 40,
       videoCount: 0,
@@ -188,6 +189,7 @@ const CoursePage: FC = () => {
     setForm({ ...course });
     setDescriptionFromHtml(course.description || "");
     setSelectedImageFile(null);
+    // Load subcategories based on the existing category
     loadSubCategories(course.categoryId || null);
     setShowModal(true);
   };
@@ -216,16 +218,19 @@ const CoursePage: FC = () => {
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
-    const { name, value, type } = e.target as HTMLInputElement;
-    if (type === "number") {
-      setForm({ ...form, [name]: Number(value) });
-    } else {
-      setForm({ ...form, [name]: value });
+    const { name, value, type } = e.target;
+
+    // Handle Category Logic specifically
+    if (name === "categoryId") {
+      setForm((f) => ({ ...f, categoryId: value, subCategoryId: "" }));
+      loadSubCategories(value || null);
+      return;
     }
 
-    if (name === "categoryId") {
-      loadSubCategories(value || null);
-      setForm((f) => ({ ...f, subCategoryId: null }));
+    if (type === "number") {
+      setForm((f) => ({ ...f, [name]: Number(value) }));
+    } else {
+      setForm((f) => ({ ...f, [name]: value }));
     }
   };
 
@@ -233,7 +238,7 @@ const CoursePage: FC = () => {
     const f = e.target.files?.[0] ?? null;
     setSelectedImageFile(f);
     if (f) {
-      setForm((s) => ({ ...s, image: s.image ?? f.name }));
+      setForm((s) => ({ ...s, image: f.name }));
     }
   };
 
@@ -317,9 +322,8 @@ const CoursePage: FC = () => {
               <div className="symbol symbol-50px me-5">
                 <img
                   src={row.original.image}
-                  className=""
                   alt=""
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", width: "50px", height: "50px" }}
                 />
               </div>
             )}
@@ -333,28 +337,18 @@ const CoursePage: FC = () => {
       },
       {
         header: "Category",
-        accessorFn: (row) => {
-          if (!categories.length) return "Loading...";
-          const cat = categories.find((c) => c.id === row.categoryId);
-          return cat ? cat.name : "-";
+        // Use a function component for the cell to ensure it rerenders
+        // when the categories state updates, even if the main columns memo does not.
+        cell: ({ row }) => {
+          if (!categories.length || !row.original.categoryId) return "-";
+          const cat = categories.find((c) => c.id === row.original.categoryId);
+          return <span>{cat ? cat.name : "-"}</span>;
         },
         id: "category",
-        cell: (info) => info.getValue<string>(),
       },
       {
         header: "Created At",
         accessorKey: "createdAt",
-        cell: ({ getValue }) => (
-          <span>
-            {getValue<string>()
-              ? new Date(getValue<string>()).toLocaleDateString()
-              : "-"}
-          </span>
-        ),
-      },
-      {
-        header: "Updated At",
-        accessorKey: "updatedAt",
         cell: ({ getValue }) => (
           <span>
             {getValue<string>()
@@ -375,7 +369,7 @@ const CoursePage: FC = () => {
         ),
       },
     ],
-    [courses, categories] // ✅ remove subCategories, no longer used
+    [courses, categories]
   );
 
   const table = useReactTable({
@@ -390,8 +384,6 @@ const CoursePage: FC = () => {
   // ----------------------
   // RENDER
   // ----------------------
-  if (!categories.length) return <div>Loading courses...</div>;
-
   return (
     <div className="m-4 bg-white p-6 rounded shadow-sm">
       {/* Header */}
@@ -411,6 +403,7 @@ const CoursePage: FC = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          {/* Add Button */}
           <button className="btn btn-primary" onClick={openCreateModal}>
             Add Course
           </button>
@@ -448,18 +441,26 @@ const CoursePage: FC = () => {
                 ))}
               </thead>
               <tbody className="text-dark fw-semibold">
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
+                {table.getRowModel().rows.length > 0 ? (
+                  table.getRowModel().rows.map((row) => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={columns.length} className="text-center">
+                      No courses found
+                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -481,8 +482,113 @@ const CoursePage: FC = () => {
         </Modal.Header>
 
         <Modal.Body className="py-5">
-          {/* ... your modal form remains unchanged ... */}
-          {/* Copy your existing modal form code here */}
+          <form noValidate>
+            <div className="row">
+              {/* Course Name */}
+              <div className="col-md-6 mb-3">
+                <label className="form-label required">Course Name</label>
+                <input
+                  type="text"
+                  className="form-control form-control-solid"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Enter course name"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Category</label>
+                <select
+                  className="form-select form-select-solid"
+                  name="categoryId"
+                  value={form.categoryId || ""}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sub Category */}
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Sub Category</label>
+                <select
+                  className="form-select form-select-solid"
+                  name="subCategoryId"
+                  value={form.subCategoryId || ""}
+                  onChange={handleChange}
+                  disabled={!form.categoryId}
+                >
+                  <option value="">Select Sub Category</option>
+                  {subCategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Duration */}
+              <div className="col-md-3 mb-3">
+                <label className="form-label">Duration (min)</label>
+                <input
+                  type="number"
+                  className="form-control form-control-solid"
+                  name="duration"
+                  value={form.duration}
+                  onChange={handleChange}
+                />
+              </div>
+
+              {/* Video Count */}
+              <div className="col-md-3 mb-3">
+                <label className="form-label">Video Count</label>
+                <input
+                  type="number"
+                  className="form-control form-control-solid"
+                  name="videoCount"
+                  value={form.videoCount}
+                  onChange={handleChange}
+                />
+              </div>
+
+              {/* Image Upload */}
+              <div className="col-md-12 mb-3">
+                <label className="form-label">Course Image</label>
+                <input
+                  type="file"
+                  className="form-control form-control-solid"
+                  accept="image/*"
+                  onChange={handleImageFileChange}
+                />
+                {form.image && !selectedImageFile && (
+                  <div className="mt-2">
+                    <span className="text-muted">Current: {form.image}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Description Editor */}
+              <div className="col-md-12 mb-3">
+                <label className="form-label">Description</label>
+                <div className="border rounded p-3">
+                  <Editor
+                    editorState={descriptionEditor}
+                    onEditorStateChange={setDescriptionEditor}
+                    wrapperClassName="demo-wrapper"
+                    editorClassName="demo-editor"
+                    editorStyle={{ minHeight: "200px" }}
+                  />
+                </div>
+              </div>
+            </div>
+          </form>
         </Modal.Body>
 
         <Modal.Footer>
@@ -501,7 +607,7 @@ const CoursePage: FC = () => {
 export default CoursePage;
 
 // ----------------------
-// ActionCell
+// ActionCell Component
 // ----------------------
 type ActionCellProps = {
   courseId?: string;
