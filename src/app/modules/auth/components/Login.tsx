@@ -6,6 +6,7 @@ import { useFormik } from "formik";
 import { getUserByToken, login } from "../core/_requests";
 import { toAbsoluteUrl } from "../../../../_metronic/helpers";
 import { useAuth } from "../core/Auth";
+import { UserModel } from "../core/_models";
 
 const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -20,8 +21,8 @@ const loginSchema = Yup.object().shape({
 });
 
 const initialValues = {
-  email: "admin@demo.com",
-  password: "demo",
+  email: "admin@admin.com",
+  password: "admin123",
 };
 
 /*
@@ -39,18 +40,44 @@ export function Login() {
     validationSchema: loginSchema,
     onSubmit: async (values, { setStatus, setSubmitting }) => {
       setLoading(true);
-      try {
-        const { data: auth } = await login(values.email, values.password);
-        saveAuth(auth);
-        const { data: user } = await getUserByToken(auth.api_token);
-        setCurrentUser(user);
-      } catch (error) {
-        console.error(error);
-        saveAuth(undefined);
-        setStatus("The login details are incorrect");
-        setSubmitting(false);
-        setLoading(false);
+
+      // Hard-coded authentication
+      if (
+        values.email === "admin@admin.com" &&
+        values.password === "admin123"
+      ) {
+        const fakeAuth = {
+          api_token: "static-demo-token-123",
+        };
+
+        // save token (same as Keen theme)
+        saveAuth(fakeAuth);
+
+        // OPTIONAL: Fake user info
+        const fakeUser: UserModel = {
+          id: 1,
+          username: "admin",
+          email: "admin@admin.com",
+          password: "admin123",
+          first_name: "Admin",
+          last_name: "User",
+          fullname: "Admin User",
+          occupation: "Administrator",
+          companyName: "My Company",
+          phone: "09999999999",
+          roles: [1],
+          pic: "",
+        };
+
+        setCurrentUser(fakeUser);
+        return;
       }
+
+      // Wrong login
+      saveAuth(undefined);
+      setStatus("The login details are incorrect");
+      setSubmitting(false);
+      setLoading(false);
     },
   });
 
@@ -85,8 +112,8 @@ export function Login() {
       ) : (
         <div className="mb-10 bg-light-info p-8 rounded">
           <div className="text-info">
-            Use account <strong>admin@demo.com</strong> and password{" "}
-            <strong>demo</strong> to continue.
+            Use account <strong>admin@admin.com</strong> and password{" "}
+            <strong>admin123</strong> to continue.
           </div>
         </div>
       )}
