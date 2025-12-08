@@ -1,20 +1,46 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   DragDropContext,
   Droppable,
   Draggable,
   DropResult,
 } from "@hello-pangea/dnd";
+import axios from "axios";
 
-type Activity = { id: string; name: string };
+// --- Types (MODIFIED: Added order and sectionId) ---
+type Activity = { id: string; name: string; order: number; sectionId: string };
 type Category = { id: string; title: string; activities: Activity[] };
+// ----------------------------------------------------
+
+// --- Utility Function (NEW: To handle single PATCH request) ---
+const patchActivityOrder = async (activity: {
+  id: string;
+  order: number;
+  sectionId: string;
+}) => {
+  try {
+    // Use PATCH to update only the order and sectionId fields
+    await axios.patch(
+      `https://mypadminapi.bitmyanmar.info/api/activities/${activity.id}`,
+      {
+        order: activity.order,
+        sectionId: activity.sectionId,
+      }
+    );
+  } catch (error) {
+    console.error(`Failed to patch activity ${activity.id}:`, error);
+    throw new Error("Patch failed");
+  }
+};
+// ------------------------------------------------------------
 
 const CourseCategoryList: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const courseId = searchParams.get("id"); // Get courseId from URL query
+  const navigate = useNavigate();
+  const courseId = searchParams.get("id");
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
@@ -24,45 +50,49 @@ const CourseCategoryList: React.FC = () => {
     null
   );
   const [tempTitle, setTempTitle] = useState<string>("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false); // NEW: State for saving order
 
-  // Fetch course sections when courseId is available
+  // Fetch course sections (MODIFIED: Includes sorting and storing order/sectionId)
   useEffect(() => {
     if (!courseId) return;
-
-    const fetchCourse = async () => {
-      try {
-        const res = await fetch(
-          `https://mypadminapi.bitmyanmar.info/api/courses/${courseId}`
-        );
-        const data = await res.json();
-
-        // Map API CourseSection to your local Category structure including activities
-        const mappedCategories: Category[] = (data.CourseSection || []).map(
-          (sec: any) => ({
-            id: sec.id,
-            title: sec.title,
-            activities: (sec.activities || []).map((act: any) => ({
-              id: act.id,
-              name: act.title, // map title from API to name
-            })),
-          })
-        );
-        setCategories(mappedCategories);
-      } catch (err) {
-        console.error("Failed to fetch course sections:", err);
-      }
-    };
-
-    fetchCourse();
+    fetchCourseData();
   }, [courseId]);
 
-  // --- Handlers for editing / adding / saving ---
+  const fetchCourseData = async () => {
+    try {
+      const res = await axios.get(
+        `https://mypadminapi.bitmyanmar.info/api/courses/${courseId}`
+      );
+      const data = res.data;
+
+      const mappedCategories: Category[] = (data.CourseSection || []).map(
+        (sec: any) => ({
+          id: sec.id,
+          title: sec.title,
+          activities: (sec.activities || [])
+            .map((act: any) => ({
+              id: act.id,
+              name: act.title,
+              order: act.order || 0, // IMPORTANT: Get order from API
+              sectionId: sec.id, // IMPORTANT: Store current section ID
+            }))
+            .sort((a: Activity, b: Activity) => a.order - b.order), // IMPORTANT: Sort activities initially
+        })
+      );
+      setCategories(mappedCategories);
+    } catch (err) {
+      console.error("Failed to fetch course sections:", err);
+    }
+  };
+
+  // --- Handlers for editing / saving (REMAIN SAME) ---
   const handleTitleEdit = (id: string, title: string) => {
     setEditingCategoryId(id);
     setTempTitle(title);
   };
 
-  const handleTitleSave = (id: string) => {
+  const handleTitleSave = async (id: string) => {
     setCategories((prev) =>
       prev.map((cat) => (cat.id === id ? { ...cat, title: tempTitle } : cat))
     );
@@ -74,7 +104,7 @@ const CourseCategoryList: React.FC = () => {
     setTempTitle(name);
   };
 
-  const handleActivitySave = (catId: string, actId: string) => {
+  const handleActivitySave = async (catId: string, actId: string) => {
     setCategories((prev) =>
       prev.map((cat) =>
         cat.id === catId
@@ -97,34 +127,79 @@ const CourseCategoryList: React.FC = () => {
     ]);
   };
 
-  const handleAddActivity = (catId: string) => {
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === catId
-          ? {
-              ...cat,
-              activities: [
-                ...cat.activities,
-                { id: `act-${Date.now()}`, name: "New Activity" },
-              ],
-            }
-          : cat
-      )
-    );
+  // --- handleAddActivity (MODIFIED: Ensures new activity gets an 'order' and 'sectionId') ---
+  const handleAddActivity = async (sectionId: string) => {
+    if (isCreating) return;
+
+    if (sectionId.startsWith("cat-")) {
+      alert(
+        "Please save the new section to the database first (Integration required)."
+      );
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const section = categories.find((c) => c.id === sectionId);
+      const newOrder = section ? section.activities.length + 1 : 1; // Calculate next order
+
+      const payload = {
+        title: "New Activity",
+        type: "PAGE",
+        content: "",
+        order: newOrder, // Include order in creation payload
+        sectionId: sectionId,
+        description: "",
+      };
+
+      const res = await axios.post(
+        "https://mypadminapi.bitmyanmar.info/api/activities",
+        payload
+      );
+
+      const newActivityData = res.data;
+
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === sectionId
+            ? {
+                ...cat,
+                activities: [
+                  ...cat.activities,
+                  {
+                    id: newActivityData.id,
+                    name: newActivityData.title || "New Activity",
+                    order: newActivityData.order || newOrder, // Use real order
+                    sectionId: sectionId,
+                  },
+                ].sort((a, b) => a.order - b.order),
+              }
+            : cat
+        )
+      );
+    } catch (err) {
+      console.error("Failed to create activity:", err);
+      alert("Failed to create new activity on server.");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  // --- Drag and Drop ---
-  const handleDragEnd = (result: DropResult) => {
+  // --- Drag and Drop (MODIFIED: Implements order update via PATCH) ---
+  const handleDragEnd = async (result: DropResult) => {
     const { source, destination, type } = result;
-    if (!destination) return;
+    if (!destination || isOrdering) return;
 
     if (type === "category") {
       const reordered = Array.from(categories);
       const [removed] = reordered.splice(source.index, 1);
       reordered.splice(destination.index, 0, removed);
       setCategories(reordered);
+      // TODO: API call to save section order
       return;
     }
+
+    // --- Activity Reordering ---
 
     const sourceCatIndex = categories.findIndex(
       (c) => c.id === source.droppableId
@@ -135,28 +210,113 @@ const CourseCategoryList: React.FC = () => {
     if (sourceCatIndex === -1 || destCatIndex === -1) return;
 
     const updated = [...categories];
+    const activitiesToPatch: {
+      id: string;
+      order: number;
+      sectionId: string;
+    }[] = [];
+    let sourceSectionId = updated[sourceCatIndex].id;
+    let destSectionId = updated[destCatIndex].id;
 
+    // 1. Perform the optimistic local state update
     if (sourceCatIndex === destCatIndex) {
+      // Reordering within the same section
       const items = Array.from(updated[sourceCatIndex].activities);
       const [removed] = items.splice(source.index, 1);
       items.splice(destination.index, 0, removed);
       updated[sourceCatIndex].activities = items;
     } else {
+      // Moving activity between sections
       const sourceItems = Array.from(updated[sourceCatIndex].activities);
-      const [moved] = sourceItems.splice(source.index, 1);
+      const [movedItem] = sourceItems.splice(source.index, 1);
       const destItems = Array.from(updated[destCatIndex].activities);
-      destItems.splice(destination.index, 0, moved);
+      destItems.splice(destination.index, 0, movedItem);
 
       updated[sourceCatIndex].activities = sourceItems;
       updated[destCatIndex].activities = destItems;
     }
 
-    setCategories(updated);
+    // 2. Calculate new orders and queue necessary PATCH requests
+
+    // Process Source Section (if activity order changed or item was moved out)
+    updated[sourceCatIndex].activities.forEach((activity, index) => {
+      const newOrder = index + 1;
+      // Queue patch if order changed OR if the activity belonged to a different section originally
+      if (
+        activity.order !== newOrder ||
+        activity.sectionId !== sourceSectionId
+      ) {
+        activitiesToPatch.push({
+          id: activity.id,
+          order: newOrder,
+          sectionId: sourceSectionId,
+        });
+      }
+    });
+
+    // Process Destination Section (if different from source)
+    if (sourceCatIndex !== destCatIndex) {
+      updated[destCatIndex].activities.forEach((activity, index) => {
+        const newOrder = index + 1;
+        // Queue patch if order changed OR if the activity belonged to a different section originally
+        if (
+          activity.order !== newOrder ||
+          activity.sectionId !== destSectionId
+        ) {
+          activitiesToPatch.push({
+            id: activity.id,
+            order: newOrder,
+            sectionId: destSectionId,
+          });
+        }
+      });
+    }
+
+    // 3. Update local state with the final calculated orders and section IDs
+    const finalCategories = updated.map((cat) => ({
+      ...cat,
+      activities: cat.activities.map((act, index) => ({
+        ...act,
+        order: index + 1,
+        sectionId: cat.id, // Ensure local state sectionId is correct
+      })),
+    }));
+    setCategories(finalCategories);
+
+    // 4. Send PATCH requests to API
+    if (activitiesToPatch.length === 0) return;
+
+    setIsOrdering(true);
+    try {
+      const patchPromises = activitiesToPatch.map((activity) =>
+        patchActivityOrder(activity)
+      );
+      await Promise.all(patchPromises);
+      console.log(
+        `Successfully patched ${activitiesToPatch.length} activities.`
+      );
+    } catch (e) {
+      alert("Failed to save the new order. Reverting to last saved data.");
+      fetchCourseData(); // Re-fetch data to revert state on failure
+    } finally {
+      setIsOrdering(false);
+    }
   };
+  // -------------------------------------------------------------------------
 
   return (
     <div className="container py-6">
       <h2 className="fw-bold mb-6">Course Sections and Activities</h2>
+
+      {isOrdering && (
+        <div className="alert alert-info d-flex align-items-center mb-4 p-3">
+          <div
+            className="spinner-border spinner-border-sm me-3"
+            role="status"
+          ></div>
+          <strong>Saving new order...</strong>
+        </div>
+      )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="all-categories" type="category">
@@ -246,6 +406,11 @@ const CourseCategoryList: React.FC = () => {
                                     }`}
                                   >
                                     <div className="d-flex align-items-center gap-3">
+                                      {/* NEW: Display the current order number */}
+                                      <span className="badge badge-light-secondary fw-bold me-2">
+                                        {act.order}
+                                      </span>
+
                                       {editingActivityId === act.id ? (
                                         <input
                                           value={tempTitle}
@@ -290,15 +455,14 @@ const CourseCategoryList: React.FC = () => {
                                         </button>
                                       )}
 
+                                      {/* LINK BUTTON */}
                                       <button
                                         className="btn btn-sm btn-light p-1"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          // Updated Routing Logic
-                                          // We pass both course ID and the specific activity ID
-                                          const targetUrl = `/apps/course/activity?id=${courseId}&activityId=${act.id}`;
-                                          window.location.href = targetUrl;
-                                          // Note: In a real React app, prefer: navigate(targetUrl) using useNavigate() hook
+                                          navigate(
+                                            `/apps/course/activity?id=${courseId}&activityId=${act.id}`
+                                          );
                                         }}
                                       >
                                         <i className="bi bi-box-arrow-up-right text-info"></i>
@@ -308,14 +472,22 @@ const CourseCategoryList: React.FC = () => {
                                 )}
                               </Draggable>
                             ))}
-
                             {provList.placeholder}
 
+                            {/* ADD ACTIVITY BUTTON */}
                             <button
                               className="btn btn-light-primary w-100 mt-3"
                               onClick={() => handleAddActivity(category.id)}
+                              disabled={isCreating}
                             >
-                              + Add Activity
+                              {isCreating ? (
+                                <span>
+                                  <span className="spinner-border spinner-border-sm me-2"></span>
+                                  Creating...
+                                </span>
+                              ) : (
+                                "+ Add Activity"
+                              )}
                             </button>
                           </div>
                         )}
@@ -324,7 +496,6 @@ const CourseCategoryList: React.FC = () => {
                   )}
                 </Draggable>
               ))}
-
               {provided.placeholder}
 
               <button
