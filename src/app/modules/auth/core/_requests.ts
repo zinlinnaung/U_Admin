@@ -1,22 +1,27 @@
-import axios from "axios";
+// FRONTEND-ONLY AUTH (NO SERVER)
+
 import { AuthModel, UserModel } from "./_models";
 
-const API_URL = import.meta.env.VITE_APP_API_URL;
+// Hard-coded credentials
+const VALID_EMAIL = "admin@admin.com";
+const VALID_PASSWORD = "admin123";
 
-export const GET_USER_BY_ACCESSTOKEN_URL = `${API_URL}/verify_token`;
-export const LOGIN_URL = `${API_URL}/login`;
-export const REGISTER_URL = `${API_URL}/register`;
-export const REQUEST_PASSWORD_URL = `${API_URL}/forgot_password`;
-
-// Server should return AuthModel
+// Fake login (replaces axios.post)
 export function login(email: string, password: string) {
-  return axios.post<AuthModel>(LOGIN_URL, {
-    email,
-    password,
+  return new Promise<{ data: AuthModel }>((resolve, reject) => {
+    if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+      resolve({
+        data: {
+          api_token: "static-demo-token-123",
+        },
+      });
+    } else {
+      reject(new Error("Invalid credentials"));
+    }
   });
 }
 
-// Server should return AuthModel
+// Fake register (optional, can disable)
 export function register(
   email: string,
   firstname: string,
@@ -24,24 +29,49 @@ export function register(
   password: string,
   password_confirmation: string
 ) {
-  return axios.post(REGISTER_URL, {
-    email,
-    first_name: firstname,
-    last_name: lastname,
-    password,
-    password_confirmation,
+  return new Promise((resolve) => {
+    resolve({
+      data: {
+        api_token: "new-user-token-123",
+      },
+    });
   });
 }
 
-// Server should return object => { result: boolean } (Is Email in DB)
+// Fake forgot-password
 export function requestPassword(email: string) {
-  return axios.post<{ result: boolean }>(REQUEST_PASSWORD_URL, {
-    email,
+  return new Promise((resolve) => {
+    resolve({
+      data: { result: true },
+    });
   });
 }
 
+// VERY IMPORTANT: Fake getUserByToken
+// This restores user on page refresh!!!
 export function getUserByToken(token: string) {
-  return axios.post<UserModel>(GET_USER_BY_ACCESSTOKEN_URL, {
-    api_token: token,
+  return new Promise<{ data: UserModel }>((resolve) => {
+    // if token exists, return user
+    if (token === "static-demo-token-123") {
+      const fakeUser: UserModel = {
+        id: 1,
+        username: "admin",
+        email: VALID_EMAIL,
+        password: VALID_PASSWORD,
+        first_name: "Admin",
+        last_name: "User",
+        fullname: "Admin User",
+        occupation: "Administrator",
+        companyName: "My Company",
+        phone: "09999999999",
+        roles: [1],
+        pic: "",
+      };
+
+      resolve({ data: fakeUser });
+    } else {
+      // no token = not logged in
+      resolve({ data: undefined as any });
+    }
   });
 }
