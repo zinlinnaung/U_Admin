@@ -13,25 +13,57 @@ import axios from "axios";
 // --- Configuration ---
 const BASE_API_URL = "https://mypadminapi.bitmyanmar.info/api";
 
-// --- Types (MODIFIED: Added order, sectionId, and type) ---
+// --- Types ---
 type Activity = {
   id: string;
   name: string;
   order: number;
   sectionId: string;
-  type: string; // <--- MODIFIED: Added type for display
+  type: string;
 };
 type Category = { id: string; title: string; activities: Activity[] };
 // ----------------------------------------------------
 
 // --- Utility Functions ---
+
+const createSectionApi = async (
+  courseId: string,
+  title: string,
+  order: number
+) => {
+  try {
+    const response = await axios.post(`${BASE_API_URL}/course-sections`, {
+      courseId: courseId,
+      title: title,
+      description: "", // Added default description field as required by your API body
+      order: order,
+    });
+    // Return the new section data, which includes the database ID
+    return response.data;
+  } catch (error) {
+    console.error("Failed to create new section:", error);
+    throw new Error("Section creation failed");
+  }
+};
+
+const patchSectionTitleApi = async (sectionId: string, newTitle: string) => {
+  try {
+    // CORRECTED: Using the confirmed PATCH endpoint /course-sections/{id}
+    await axios.patch(`${BASE_API_URL}/course-sections/${sectionId}`, {
+      title: newTitle,
+    });
+  } catch (error) {
+    console.error(`Failed to patch section title for ${sectionId}:`, error);
+    throw new Error("Section title update failed");
+  }
+};
+
 const patchActivityOrder = async (activity: {
   id: string;
   order: number;
   sectionId: string;
 }) => {
   try {
-    // Use PATCH to update only the order and sectionId fields
     await axios.patch(`${BASE_API_URL}/activities/${activity.id}`, {
       order: activity.order,
       sectionId: activity.sectionId,
@@ -44,6 +76,7 @@ const patchActivityOrder = async (activity: {
 
 const deleteSectionApi = async (sectionId: string) => {
   try {
+    // NOTE: Keeping the original DELETE endpoint as specified in your code's context
     await axios.delete(`${BASE_API_URL}/courses/sections/${sectionId}`);
   } catch (error) {
     console.error(`Failed to delete section ${sectionId}:`, error);
@@ -77,10 +110,12 @@ const CourseCategoryList: React.FC = () => {
   );
   const [tempTitle, setTempTitle] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingSection, setIsCreatingSection] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
-  // Fetch course sections (MODIFIED: Includes sorting and storing order/sectionId/type)
+  // Fetch course sections
   useEffect(() => {
     if (!courseId) return;
     fetchCourseData();
@@ -103,7 +138,7 @@ const CourseCategoryList: React.FC = () => {
               name: act.title,
               order: act.order || 0,
               sectionId: sec.id,
-              type: act.type, // <--- MODIFIED: EXTRACT TYPE
+              type: act.type,
             }))
             .sort((a: Activity, b: Activity) => a.order - b.order),
         })
@@ -114,18 +149,47 @@ const CourseCategoryList: React.FC = () => {
     }
   };
 
-  // --- Handlers for editing / saving (REMAIN SAME) ---
+  // --- Handlers for editing / saving ---
   const handleTitleEdit = (id: string, title: string) => {
     setEditingCategoryId(id);
     setTempTitle(title);
   };
 
   const handleTitleSave = async (id: string) => {
+    if (tempTitle.trim() === "") {
+      alert("Section title cannot be empty.");
+      setEditingCategoryId(null);
+      return;
+    }
+
+    const originalTitle =
+      categories.find((cat) => cat.id === id)?.title || "Old Title";
+
+    // 1. Optimistic Local State Update
     setCategories((prev) =>
       prev.map((cat) => (cat.id === id ? { ...cat, title: tempTitle } : cat))
     );
     setEditingCategoryId(null);
-    // TODO: Add API call to update section title
+
+    // 2. Database Update
+    setIsSavingTitle(true);
+    try {
+      // CALLING THE CORRECTED API FUNCTION
+      await patchSectionTitleApi(id, tempTitle);
+      console.log(`Successfully updated section ${id} title to ${tempTitle}`);
+    } catch (e) {
+      alert(
+        "Failed to save section title to the database. Reverting local change."
+      );
+      // Revert local state on failure
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === id ? { ...cat, title: originalTitle } : cat
+        )
+      );
+    } finally {
+      setIsSavingTitle(false);
+    }
   };
 
   const handleActivityEdit = (id: string, name: string) => {
@@ -150,31 +214,56 @@ const CourseCategoryList: React.FC = () => {
     // TODO: Add API call to update activity title
   };
 
-  const handleAddCategory = () => {
-    setCategories((prev) => [
-      ...prev,
-      { id: `cat-${Date.now()}`, title: "New Section", activities: [] },
-    ]);
-    // TODO: Add API call to create new section
-  };
+  // --- handleAddCategory ---
+  const handleAddCategory = async () => {
+    if (isCreatingSection || !courseId) return;
 
-  // --- handleAddActivity (MODIFIED: Includes 'type') ---
+    setIsCreatingSection(true);
+    const defaultTitle = "New Section";
+    const newOrder = categories.length + 1;
+
+    try {
+      const newSection = await createSectionApi(
+        courseId,
+        defaultTitle,
+        newOrder
+      );
+
+      const newCategory: Category = {
+        id: newSection.id,
+        title: newSection.title || defaultTitle,
+        activities: [],
+      };
+
+      setCategories((prev) => [...prev, newCategory]);
+      setEditingCategoryId(newSection.id);
+      setTempTitle(newSection.title || defaultTitle);
+    } catch (err) {
+      console.error("Failed to add new section:", err);
+      alert("Failed to create new section on server.");
+    } finally {
+      setIsCreatingSection(false);
+    }
+  };
+  // ---------------------------------------------------------------------
+
+  // --- handleAddActivity ---
   const handleAddActivity = async (sectionId: string) => {
     if (isCreating) return;
 
     if (sectionId.startsWith("cat-")) {
       alert(
-        "Please save the new section to the database first (Integration required)."
+        "Error: Section ID is temporary. Please ensure the section was saved."
       );
       return;
     }
 
     setIsCreating(true);
-    const defaultType = "PAGE"; // Assuming a default type for new activities
+    const defaultType = "PAGE";
 
     try {
       const section = categories.find((c) => c.id === sectionId);
-      const newOrder = section ? section.activities.length + 1 : 1; // Calculate next order
+      const newOrder = section ? section.activities.length + 1 : 1;
 
       const payload = {
         title: "New Activity",
@@ -201,7 +290,7 @@ const CourseCategoryList: React.FC = () => {
                     name: newActivityData.title || "New Activity",
                     order: newActivityData.order || newOrder,
                     sectionId: sectionId,
-                    type: newActivityData.type || defaultType, // <--- MODIFIED: ADDED TYPE
+                    type: newActivityData.type || defaultType,
                   },
                 ].sort((a, b) => a.order - b.order),
               }
@@ -223,12 +312,6 @@ const CourseCategoryList: React.FC = () => {
         "Are you sure you want to delete this section and ALL of its activities? This action cannot be undone."
       )
     ) {
-      return;
-    }
-
-    if (categoryId.startsWith("cat-")) {
-      // Local-only deletion for unsaved categories
-      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
       return;
     }
 
@@ -407,14 +490,20 @@ const CourseCategoryList: React.FC = () => {
         Course Sections and Activities
       </h2>
 
-      {(isOrdering || isDeleting) && (
+      {(isOrdering || isDeleting || isCreatingSection || isSavingTitle) && (
         <div className="alert alert-info d-flex align-items-center mb-4 p-3">
           <div
             className="spinner-border spinner-border-sm me-3"
             role="status"
           ></div>
           <strong>
-            {isOrdering ? "Saving new order..." : "Processing deletion..."}
+            {isOrdering
+              ? "Saving new order..."
+              : isDeleting
+              ? "Processing deletion..."
+              : isSavingTitle
+              ? "Saving title..."
+              : "Creating new section..."}
           </strong>
         </div>
       )}
@@ -454,8 +543,13 @@ const CourseCategoryList: React.FC = () => {
                             <button
                               className="btn btn-sm btn-success"
                               onClick={() => handleTitleSave(category.id)}
+                              disabled={isSavingTitle}
                             >
-                              <i className="bi bi-check-lg"></i>
+                              {isSavingTitle ? (
+                                <span className="spinner-border spinner-border-sm"></span>
+                              ) : (
+                                <i className="bi bi-check-lg"></i>
+                              )}
                             </button>
                           </div>
                         ) : (
@@ -472,7 +566,7 @@ const CourseCategoryList: React.FC = () => {
                                   e.stopPropagation();
                                   handleTitleEdit(category.id, category.title);
                                 }}
-                                disabled={isDeleting}
+                                disabled={isDeleting || isSavingTitle}
                               >
                                 <i className="bi bi-pencil-square text-primary"></i>
                               </button>
@@ -484,7 +578,9 @@ const CourseCategoryList: React.FC = () => {
                                   e.stopPropagation();
                                   handleDeleteCategory(category.id);
                                 }}
-                                disabled={isDeleting || isOrdering}
+                                disabled={
+                                  isDeleting || isOrdering || isSavingTitle
+                                }
                               >
                                 <i className="bi bi-trash-fill text-danger"></i>
                               </button>
@@ -604,12 +700,14 @@ const CourseCategoryList: React.FC = () => {
                             <button
                               className="btn btn-light-primary w-100 mt-3"
                               onClick={() => handleAddActivity(category.id)}
-                              disabled={isCreating || isDeleting}
+                              disabled={
+                                isCreating || isDeleting || isCreatingSection
+                              }
                             >
                               {isCreating ? (
                                 <span>
                                   <span className="spinner-border spinner-border-sm me-2"></span>
-                                  Creating...
+                                  Creating Activity...
                                 </span>
                               ) : (
                                 "+ Add Activity"
@@ -627,9 +725,16 @@ const CourseCategoryList: React.FC = () => {
               <button
                 className="btn btn-light-success w-100 mt-6"
                 onClick={handleAddCategory}
-                disabled={isDeleting}
+                disabled={isDeleting || isCreatingSection}
               >
-                + Add New Sections
+                {isCreatingSection ? (
+                  <span>
+                    <span className="spinner-border spinner-border-sm me-2"></span>
+                    Creating Section...
+                  </span>
+                ) : (
+                  "+ Add New Section"
+                )}
               </button>
             </div>
           )}

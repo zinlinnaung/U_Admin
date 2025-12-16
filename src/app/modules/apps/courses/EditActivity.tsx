@@ -432,7 +432,7 @@ export const EditActivity = () => {
           )}
 
           {/* ACTION BUTTONS */}
-          <div className="d-flex gap-3 mt-10">
+          <div className="d-flex gap-3 mt-15">
             <Button
               variant="primary"
               onClick={() => handleSave(true)}
