@@ -13,8 +13,14 @@ import axios from "axios";
 // --- Configuration ---
 const BASE_API_URL = "https://mypadminapi.bitmyanmar.info/api";
 
-// --- Types (MODIFIED: Added order and sectionId) ---
-type Activity = { id: string; name: string; order: number; sectionId: string };
+// --- Types (MODIFIED: Added order, sectionId, and type) ---
+type Activity = {
+  id: string;
+  name: string;
+  order: number;
+  sectionId: string;
+  type: string; // <--- MODIFIED: Added type for display
+};
 type Category = { id: string; title: string; activities: Activity[] };
 // ----------------------------------------------------
 
@@ -36,7 +42,6 @@ const patchActivityOrder = async (activity: {
   }
 };
 
-// --- NEW Utility Function for Deleting a Section ---
 const deleteSectionApi = async (sectionId: string) => {
   try {
     await axios.delete(`${BASE_API_URL}/courses/sections/${sectionId}`);
@@ -46,7 +51,6 @@ const deleteSectionApi = async (sectionId: string) => {
   }
 };
 
-// --- NEW Utility Function for Deleting an Activity ---
 const deleteActivityApi = async (activityId: string) => {
   try {
     await axios.delete(`${BASE_API_URL}/activities/${activityId}`);
@@ -63,7 +67,6 @@ const CourseCategoryList: React.FC = () => {
   const courseId = searchParams.get("id");
 
   const [categories, setCategories] = useState<Category[]>([]);
-  // NEW: State for course name
   const [courseName, setCourseName] = useState<string>("");
 
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
@@ -77,7 +80,7 @@ const CourseCategoryList: React.FC = () => {
   const [isOrdering, setIsOrdering] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch course sections (MODIFIED: Includes sorting and storing order/sectionId)
+  // Fetch course sections (MODIFIED: Includes sorting and storing order/sectionId/type)
   useEffect(() => {
     if (!courseId) return;
     fetchCourseData();
@@ -88,7 +91,6 @@ const CourseCategoryList: React.FC = () => {
       const res = await axios.get(`${BASE_API_URL}/courses/${courseId}`);
       const data = res.data;
 
-      // NEW: Extract the course name from the data
       setCourseName(data.name || "Course Details");
 
       const mappedCategories: Category[] = (data.CourseSection || []).map(
@@ -99,10 +101,11 @@ const CourseCategoryList: React.FC = () => {
             .map((act: any) => ({
               id: act.id,
               name: act.title,
-              order: act.order || 0, // IMPORTANT: Get order from API
-              sectionId: sec.id, // IMPORTANT: Store current section ID
+              order: act.order || 0,
+              sectionId: sec.id,
+              type: act.type, // <--- MODIFIED: EXTRACT TYPE
             }))
-            .sort((a: Activity, b: Activity) => a.order - b.order), // IMPORTANT: Sort activities initially
+            .sort((a: Activity, b: Activity) => a.order - b.order),
         })
       );
       setCategories(mappedCategories);
@@ -155,7 +158,7 @@ const CourseCategoryList: React.FC = () => {
     // TODO: Add API call to create new section
   };
 
-  // --- handleAddActivity (MODIFIED: Ensures new activity gets an 'order' and 'sectionId') ---
+  // --- handleAddActivity (MODIFIED: Includes 'type') ---
   const handleAddActivity = async (sectionId: string) => {
     if (isCreating) return;
 
@@ -167,15 +170,17 @@ const CourseCategoryList: React.FC = () => {
     }
 
     setIsCreating(true);
+    const defaultType = "PAGE"; // Assuming a default type for new activities
+
     try {
       const section = categories.find((c) => c.id === sectionId);
       const newOrder = section ? section.activities.length + 1 : 1; // Calculate next order
 
       const payload = {
         title: "New Activity",
-        type: "PAGE",
+        type: defaultType,
         content: "",
-        order: newOrder, // Include order in creation payload
+        order: newOrder,
         sectionId: sectionId,
         description: "",
       };
@@ -194,8 +199,9 @@ const CourseCategoryList: React.FC = () => {
                   {
                     id: newActivityData.id,
                     name: newActivityData.title || "New Activity",
-                    order: newActivityData.order || newOrder, // Use real order
+                    order: newActivityData.order || newOrder,
                     sectionId: sectionId,
+                    type: newActivityData.type || defaultType, // <--- MODIFIED: ADDED TYPE
                   },
                 ].sort((a, b) => a.order - b.order),
               }
@@ -210,7 +216,7 @@ const CourseCategoryList: React.FC = () => {
     }
   };
 
-  // --- NEW: Delete Section Handler ---
+  // --- Delete Handlers (REMAIN SAME) ---
   const handleDeleteCategory = async (categoryId: string) => {
     if (
       !window.confirm(
@@ -237,7 +243,6 @@ const CourseCategoryList: React.FC = () => {
     }
   };
 
-  // --- NEW: Delete Activity Handler ---
   const handleDeleteActivity = async (
     categoryId: string,
     activityId: string
@@ -274,7 +279,7 @@ const CourseCategoryList: React.FC = () => {
     }
   };
 
-  // --- Drag and Drop (MODIFIED: Implements order update via PATCH) ---
+  // --- Drag and Drop (REMAIN SAME) ---
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination, type } = result;
     if (!destination || isOrdering) return;
@@ -395,7 +400,6 @@ const CourseCategoryList: React.FC = () => {
 
   return (
     <div className="container py-6">
-      {/* MODIFIED: Display Course Name */}
       <h1 className="fw-bolder mb-2 text-dark">
         {courseName || "Loading Course..."}
       </h1>
@@ -523,6 +527,10 @@ const CourseCategoryList: React.FC = () => {
                                       {/* Display the current order number */}
                                       <span className="badge badge-light-secondary fw-bold me-2">
                                         {act.order}
+                                      </span>
+                                      {/* Display the activity type (NEW) */}
+                                      <span className="badge badge-light-info fw-bold me-2 text-uppercase">
+                                        {act.type}
                                       </span>
 
                                       {editingActivityId === act.id ? (
