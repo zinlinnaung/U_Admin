@@ -2,20 +2,62 @@ import React, { useRef, useEffect } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 
+// Define the component's expected properties
 interface QuillProps {
   value: string;
   onChange: (html: string) => void;
   height?: number;
 }
 
-// Define the toolbar configuration with image button
+// 1. Define the toolbar configuration (no change needed here)
 const toolbarOptions = [
   [{ header: [1, 2, false] }],
   ["bold", "italic", "underline", "strike"],
   [{ list: "ordered" }, { list: "bullet" }],
-  ["link", "image"], // Image button is included here
+  ["link", "image", "video"],
   ["clean"],
 ];
+
+// --- START: VIDEO BLOT REGISTRATION (Using <video> tag) ---
+
+// FIX: Type assertion remains the same to resolve TypeScript errors
+const BlockEmbed: any = Quill.import("blots/block/embed");
+
+/**
+ * Custom Blot for embedding direct video files using the HTML <video> tag.
+ */
+class VideoBlot extends BlockEmbed {
+  static blotName = "video";
+  static tagName = "video"; // CHANGED: Now outputs a <video> element
+
+  static create(value: string) {
+    const node = super.create(value) as HTMLVideoElement;
+
+    // Set the direct video source URL
+    node.setAttribute("src", value);
+
+    // Set controls so the user can play/pause
+    node.setAttribute("controls", "true");
+
+    // Optional: Add styling for appearance and responsiveness
+    node.setAttribute(
+      "style",
+      "width: 100%; max-width: 600px; height: auto; display: block; margin: 10px 0;"
+    );
+    node.setAttribute("preload", "metadata"); // Useful for faster loading
+
+    return node;
+  }
+
+  static value(node: HTMLElement): string {
+    return node.getAttribute("src") || "";
+  }
+}
+
+// Register the custom Blot with Quill
+Quill.register(VideoBlot);
+
+// --- END: VIDEO BLOT REGISTRATION ---
 
 export const QuillEditor: React.FC<QuillProps> = ({
   value,
@@ -27,29 +69,41 @@ export const QuillEditor: React.FC<QuillProps> = ({
 
   useEffect(() => {
     if (editorRef.current && !quillInstance.current) {
-      // --- START: FIX FOR URL-ONLY IMAGE INSERTION ---
       const imageHandler = () => {
-        // 1. Prompt the user for the image URL
         const url = prompt("Enter the image URL:");
 
         if (url) {
-          // 2. Get the current editor instance
           const quill = quillInstance.current;
-
           if (quill) {
-            // 3. Get the cursor position
             const range = quill.getSelection(true);
             const index = range ? range.index : 0;
-
-            // 4. Insert the image into the editor at the current cursor position
             quill.insertEmbed(index, "image", url, Quill.sources.USER);
-
-            // 5. Move cursor past the newly inserted image
             quill.setSelection(index + 1, 0);
           }
         }
       };
-      // --- END: FIX FOR URL-ONLY IMAGE INSERTION ---
+
+      // --- Custom Video Handler (Simplified for direct <video> tag) ---
+      const videoHandler = () => {
+        // Prompt for the direct file link (like the one you provided)
+        const url = prompt(
+          "Enter the direct video file URL (.mp4, .mov, etc.):"
+        );
+
+        if (url) {
+          const quill = quillInstance.current;
+          if (quill) {
+            const range = quill.getSelection(true);
+            const index = range ? range.index : 0;
+
+            // Insert the direct URL using the 'video' blot, which is now a <video> tag
+            quill.insertEmbed(index, "video", url, Quill.sources.USER);
+
+            quill.setSelection(index + 1, 0);
+          }
+        }
+      };
+      // --- END: Custom Video Handler ---
 
       // 1. Initialize Quill instance
       quillInstance.current = new Quill(editorRef.current, {
@@ -57,16 +111,14 @@ export const QuillEditor: React.FC<QuillProps> = ({
         modules: {
           toolbar: {
             container: toolbarOptions,
-            // Add the custom image handler here!
             handlers: {
               image: imageHandler,
+              video: videoHandler, // Uses the simplified, direct URL handler
             },
           },
         },
         placeholder: "Enter content...",
       });
-
-      // ... (rest of useEffect logic remains the same)
 
       // 2. Load initial HTML content
       quillInstance.current.root.innerHTML = value;
@@ -78,12 +130,13 @@ export const QuillEditor: React.FC<QuillProps> = ({
       });
     }
 
+    // Cleanup function
     return () => {
       quillInstance.current = null;
     };
   }, []);
 
-  // Update content externally
+  // Update content externally (prop changes)
   useEffect(() => {
     if (
       quillInstance.current &&
