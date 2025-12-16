@@ -156,12 +156,12 @@ export const EditActivity = () => {
           headers: { "Content-Type": "multipart/form-data" },
         });
 
-        // Backend returns: { message: "...", data: { extractedFolder: "...", originalPath: "..." } }
+        // Backend returns: { message: "...", data: { extractedBasePath: "...", ... } }
         const result = response.data.data;
-
+        console.log("H5P Upload Response:", result);
+        // FIX: The API returns 'extractedBasePath', not 'extractedFolder'.
         // Save the extracted folder path to 'pageContent'
-        // This allows the H5P player to find the 'h5p.json' inside this folder
-        setPageContent(result.extractedFolder);
+        setPageContent(result.playerUrl);
 
         alert("H5P Package uploaded and extracted successfully!");
       }
@@ -233,6 +233,7 @@ export const EditActivity = () => {
           // For files and H5P, pageContent holds the URL or Path
           finalContent = pageContent;
           if (!finalContent) {
+            // This check now works correctly for H5P after the fix in handleFileUpload
             alert("File/Content is missing. Please upload a file.");
             setSubmitting(false);
             return;
@@ -298,15 +299,13 @@ export const EditActivity = () => {
           </Form.Group>
 
           {/* DESCRIPTION */}
-          <Form.Group className="mb-5">
+          <Form.Group className="mb-13">
             <Form.Label className="fw-bold fs-6">Description</Form.Label>
-            <div className="border rounded p-2" style={{ borderRadius: "8px" }}>
-              <QuillEditor
-                value={descriptionContent}
-                onChange={setDescriptionContent}
-                height={180}
-              />
-            </div>
+            <QuillEditor
+              value={descriptionContent}
+              onChange={setDescriptionContent}
+              height={180}
+            />
           </Form.Group>
 
           {/* TYPE SELECTOR */}
@@ -402,7 +401,7 @@ export const EditActivity = () => {
             <Form.Group className="mb-5">
               <Form.Label className="fw-bold fs-6">Page content</Form.Label>
               <div
-                className="border rounded p-2"
+                className="border rounded p-2 position-relative"
                 style={{ borderRadius: "8px" }}
               >
                 <QuillEditor

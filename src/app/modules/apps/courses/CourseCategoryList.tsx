@@ -63,6 +63,9 @@ const CourseCategoryList: React.FC = () => {
   const courseId = searchParams.get("id");
 
   const [categories, setCategories] = useState<Category[]>([]);
+  // NEW: State for course name
+  const [courseName, setCourseName] = useState<string>("");
+
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null
   );
@@ -72,7 +75,7 @@ const CourseCategoryList: React.FC = () => {
   const [tempTitle, setTempTitle] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false); // NEW: State for deletion
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch course sections (MODIFIED: Includes sorting and storing order/sectionId)
   useEffect(() => {
@@ -84,6 +87,9 @@ const CourseCategoryList: React.FC = () => {
     try {
       const res = await axios.get(`${BASE_API_URL}/courses/${courseId}`);
       const data = res.data;
+
+      // NEW: Extract the course name from the data
+      setCourseName(data.name || "Course Details");
 
       const mappedCategories: Category[] = (data.CourseSection || []).map(
         (sec: any) => ({
@@ -389,7 +395,13 @@ const CourseCategoryList: React.FC = () => {
 
   return (
     <div className="container py-6">
-      <h2 className="fw-bold mb-6">Course Sections and Activities</h2>
+      {/* MODIFIED: Display Course Name */}
+      <h1 className="fw-bolder mb-2 text-dark">
+        {courseName || "Loading Course..."}
+      </h1>
+      <h2 className="fw-bold mb-6 text-muted fs-3">
+        Course Sections and Activities
+      </h2>
 
       {(isOrdering || isDeleting) && (
         <div className="alert alert-info d-flex align-items-center mb-4 p-3">
@@ -508,7 +520,7 @@ const CourseCategoryList: React.FC = () => {
                                     }`}
                                   >
                                     <div className="d-flex align-items-center gap-3">
-                                      {/* NEW: Display the current order number */}
+                                      {/* Display the current order number */}
                                       <span className="badge badge-light-secondary fw-bold me-2">
                                         {act.order}
                                       </span>
@@ -545,24 +557,7 @@ const CourseCategoryList: React.FC = () => {
 
                                     {/* --- Activity Action Buttons --- */}
                                     <div className="d-flex gap-2">
-                                      {/* EDIT Button */}
-                                      {/* {!editingActivityId && (
-                                        <button
-                                          className="btn btn-sm btn-light p-1"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleActivityEdit(
-                                              act.id,
-                                              act.name
-                                            );
-                                          }}
-                                          disabled={isDeleting}
-                                        >
-                                          <i className="bi bi-pencil-square text-primary"></i>
-                                        </button>
-                                      )} */}
-
-                                      {/* LINK Button */}
+                                      {/* LINK Button (for navigating to activity edit page) */}
                                       <button
                                         className="btn btn-sm btn-light p-1"
                                         onClick={(e) => {
@@ -576,7 +571,7 @@ const CourseCategoryList: React.FC = () => {
                                         <i className="bi bi-pencil-square text-primary"></i>
                                       </button>
 
-                                      {/* DELETE Button (NEW) */}
+                                      {/* DELETE Button */}
                                       <button
                                         className="btn btn-sm btn-light-danger p-1"
                                         onClick={(e) => {
