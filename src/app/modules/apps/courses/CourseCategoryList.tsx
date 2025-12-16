@@ -10,12 +10,15 @@ import {
 } from "@hello-pangea/dnd";
 import axios from "axios";
 
+// --- Configuration ---
+const BASE_API_URL = "https://mypadminapi.bitmyanmar.info/api";
+
 // --- Types (MODIFIED: Added order and sectionId) ---
 type Activity = { id: string; name: string; order: number; sectionId: string };
 type Category = { id: string; title: string; activities: Activity[] };
 // ----------------------------------------------------
 
-// --- Utility Function (NEW: To handle single PATCH request) ---
+// --- Utility Functions ---
 const patchActivityOrder = async (activity: {
   id: string;
   order: number;
@@ -23,16 +26,33 @@ const patchActivityOrder = async (activity: {
 }) => {
   try {
     // Use PATCH to update only the order and sectionId fields
-    await axios.patch(
-      `https://mypadminapi.bitmyanmar.info/api/activities/${activity.id}`,
-      {
-        order: activity.order,
-        sectionId: activity.sectionId,
-      }
-    );
+    await axios.patch(`${BASE_API_URL}/activities/${activity.id}`, {
+      order: activity.order,
+      sectionId: activity.sectionId,
+    });
   } catch (error) {
     console.error(`Failed to patch activity ${activity.id}:`, error);
     throw new Error("Patch failed");
+  }
+};
+
+// --- NEW Utility Function for Deleting a Section ---
+const deleteSectionApi = async (sectionId: string) => {
+  try {
+    await axios.delete(`${BASE_API_URL}/courses/sections/${sectionId}`);
+  } catch (error) {
+    console.error(`Failed to delete section ${sectionId}:`, error);
+    throw new Error("Section deletion failed");
+  }
+};
+
+// --- NEW Utility Function for Deleting an Activity ---
+const deleteActivityApi = async (activityId: string) => {
+  try {
+    await axios.delete(`${BASE_API_URL}/activities/${activityId}`);
+  } catch (error) {
+    console.error(`Failed to delete activity ${activityId}:`, error);
+    throw new Error("Activity deletion failed");
   }
 };
 // ------------------------------------------------------------
@@ -51,7 +71,8 @@ const CourseCategoryList: React.FC = () => {
   );
   const [tempTitle, setTempTitle] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isOrdering, setIsOrdering] = useState(false); // NEW: State for saving order
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false); // NEW: State for deletion
 
   // Fetch course sections (MODIFIED: Includes sorting and storing order/sectionId)
   useEffect(() => {
@@ -61,9 +82,7 @@ const CourseCategoryList: React.FC = () => {
 
   const fetchCourseData = async () => {
     try {
-      const res = await axios.get(
-        `https://mypadminapi.bitmyanmar.info/api/courses/${courseId}`
-      );
+      const res = await axios.get(`${BASE_API_URL}/courses/${courseId}`);
       const data = res.data;
 
       const mappedCategories: Category[] = (data.CourseSection || []).map(
@@ -97,6 +116,7 @@ const CourseCategoryList: React.FC = () => {
       prev.map((cat) => (cat.id === id ? { ...cat, title: tempTitle } : cat))
     );
     setEditingCategoryId(null);
+    // TODO: Add API call to update section title
   };
 
   const handleActivityEdit = (id: string, name: string) => {
@@ -118,6 +138,7 @@ const CourseCategoryList: React.FC = () => {
       )
     );
     setEditingActivityId(null);
+    // TODO: Add API call to update activity title
   };
 
   const handleAddCategory = () => {
@@ -125,6 +146,7 @@ const CourseCategoryList: React.FC = () => {
       ...prev,
       { id: `cat-${Date.now()}`, title: "New Section", activities: [] },
     ]);
+    // TODO: Add API call to create new section
   };
 
   // --- handleAddActivity (MODIFIED: Ensures new activity gets an 'order' and 'sectionId') ---
@@ -152,10 +174,7 @@ const CourseCategoryList: React.FC = () => {
         description: "",
       };
 
-      const res = await axios.post(
-        "https://mypadminapi.bitmyanmar.info/api/activities",
-        payload
-      );
+      const res = await axios.post(`${BASE_API_URL}/activities`, payload);
 
       const newActivityData = res.data;
 
@@ -182,6 +201,70 @@ const CourseCategoryList: React.FC = () => {
       alert("Failed to create new activity on server.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // --- NEW: Delete Section Handler ---
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this section and ALL of its activities? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    if (categoryId.startsWith("cat-")) {
+      // Local-only deletion for unsaved categories
+      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteSectionApi(categoryId);
+      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+    } catch (e) {
+      alert("Failed to delete the section on the server.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // --- NEW: Delete Activity Handler ---
+  const handleDeleteActivity = async (
+    categoryId: string,
+    activityId: string
+  ) => {
+    if (!window.confirm("Are you sure you want to delete this activity?")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteActivityApi(activityId);
+
+      // Optimistic local state update
+      setCategories((prev) =>
+        prev.map((cat) =>
+          cat.id === categoryId
+            ? {
+                ...cat,
+                activities: cat.activities
+                  .filter((act) => act.id !== activityId)
+                  .map((act, index) => ({
+                    ...act,
+                    order: index + 1, // Recalculate and update local order
+                  })),
+              }
+            : cat
+        )
+      );
+    } catch (e) {
+      alert("Failed to delete the activity on the server. Please refresh.");
+      fetchCourseData(); // Re-fetch data on failure
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -308,13 +391,15 @@ const CourseCategoryList: React.FC = () => {
     <div className="container py-6">
       <h2 className="fw-bold mb-6">Course Sections and Activities</h2>
 
-      {isOrdering && (
+      {(isOrdering || isDeleting) && (
         <div className="alert alert-info d-flex align-items-center mb-4 p-3">
           <div
             className="spinner-border spinner-border-sm me-3"
             role="status"
           ></div>
-          <strong>Saving new order...</strong>
+          <strong>
+            {isOrdering ? "Saving new order..." : "Processing deletion..."}
+          </strong>
         </div>
       )}
 
@@ -362,15 +447,32 @@ const CourseCategoryList: React.FC = () => {
                             <h3 className="card-title fw-bold fs-4 text-dark mb-0">
                               {category.title}
                             </h3>
-                            <button
-                              className="btn btn-sm btn-light"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleTitleEdit(category.id, category.title);
-                              }}
-                            >
-                              <i className="bi bi-pencil-square text-primary"></i>
-                            </button>
+                            {/* --- Section Action Buttons --- */}
+                            <div className="d-flex gap-2">
+                              {/* EDIT Button */}
+                              <button
+                                className="btn btn-sm btn-light"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTitleEdit(category.id, category.title);
+                                }}
+                                disabled={isDeleting}
+                              >
+                                <i className="bi bi-pencil-square text-primary"></i>
+                              </button>
+
+                              {/* DELETE Button (NEW) */}
+                              <button
+                                className="btn btn-sm btn-light-danger"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCategory(category.id);
+                                }}
+                                disabled={isDeleting || isOrdering}
+                              >
+                                <i className="bi bi-trash-fill text-danger"></i>
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -439,8 +541,12 @@ const CourseCategoryList: React.FC = () => {
                                           {act.name}
                                         </span>
                                       )}
+                                    </div>
 
-                                      {!editingActivityId && (
+                                    {/* --- Activity Action Buttons --- */}
+                                    <div className="d-flex gap-2">
+                                      {/* EDIT Button */}
+                                      {/* {!editingActivityId && (
                                         <button
                                           className="btn btn-sm btn-light p-1"
                                           onClick={(e) => {
@@ -450,12 +556,13 @@ const CourseCategoryList: React.FC = () => {
                                               act.name
                                             );
                                           }}
+                                          disabled={isDeleting}
                                         >
                                           <i className="bi bi-pencil-square text-primary"></i>
                                         </button>
-                                      )}
+                                      )} */}
 
-                                      {/* LINK BUTTON */}
+                                      {/* LINK Button */}
                                       <button
                                         className="btn btn-sm btn-light p-1"
                                         onClick={(e) => {
@@ -464,8 +571,24 @@ const CourseCategoryList: React.FC = () => {
                                             `/apps/course/activity?id=${courseId}&activityId=${act.id}`
                                           );
                                         }}
+                                        disabled={isDeleting}
                                       >
-                                        <i className="bi bi-box-arrow-up-right text-info"></i>
+                                        <i className="bi bi-pencil-square text-primary"></i>
+                                      </button>
+
+                                      {/* DELETE Button (NEW) */}
+                                      <button
+                                        className="btn btn-sm btn-light-danger p-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteActivity(
+                                            category.id,
+                                            act.id
+                                          );
+                                        }}
+                                        disabled={isDeleting || isOrdering}
+                                      >
+                                        <i className="bi bi-trash-fill text-danger"></i>
                                       </button>
                                     </div>
                                   </div>
@@ -478,7 +601,7 @@ const CourseCategoryList: React.FC = () => {
                             <button
                               className="btn btn-light-primary w-100 mt-3"
                               onClick={() => handleAddActivity(category.id)}
-                              disabled={isCreating}
+                              disabled={isCreating || isDeleting}
                             >
                               {isCreating ? (
                                 <span>
@@ -501,6 +624,7 @@ const CourseCategoryList: React.FC = () => {
               <button
                 className="btn btn-light-success w-100 mt-6"
                 onClick={handleAddCategory}
+                disabled={isDeleting}
               >
                 + Add New Sections
               </button>

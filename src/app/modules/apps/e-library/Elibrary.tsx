@@ -1,11 +1,11 @@
-// FULL E-LIBRARY PAGE WITH IMAGE PREVIEW FIXED
-// React + Metronic
+// FULL E-LIBRARY PAGE INTEGRATED WITH API
+// FINAL VERSION — READY FOR USE
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import axios from "axios";
 import { Modal } from "react-bootstrap";
 import { Editor } from "react-draft-wysiwyg";
 import { EditorState, convertToRaw } from "draft-js";
-import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 
 import { KTCard, KTCardBody } from "../../../../_metronic/helpers";
 import {
@@ -15,57 +15,36 @@ import {
   ColumnDef,
 } from "@tanstack/react-table";
 
-const TYPES = [
-  "Article - Image",
-  "Article - Text",
-  "E-Book",
-  "Podcast",
-  "Video",
-  "Youth-Voice",
-];
+import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 
-const CATEGORIES = [
-  "Career Development",
-  "Digital Literacy",
-  "Entrepreneurship",
-  "Financial Literacy",
-  "Health & Wellbeing",
-  "Language",
-  "Non-Formal Education",
-  "Personal Development",
-  "Vocational & Livelihood",
-];
+const API = "https://mypadminapi.bitmyanmar.info/api/content";
 
-// MOCK DATA
-const mock = [
-  {
-    id: 1,
-    name: "Biology 2",
-    previewImage: "preview1.jpg",
-    type: "Article - Text",
-    courseCategory: "Health & Wellbeing",
-    description: "{}",
-    articleText: "{}",
-    articleImages: ["preview1.jpg"],
-    ebookPdf: "",
-    youtubeLink: "",
-  },
-  {
-    id: 2,
-    name: "English TB-Eng",
-    previewImage: "preview2.jpg",
-    type: "E-Book",
-    courseCategory: "Digital Literacy",
-    description: "{}",
-    articleText: "{}",
-    articleImages: [],
-    ebookPdf: "digital-skills.pdf",
-    youtubeLink: "",
-  },
-];
+/* -------------------------------------------------------
+   🔗 TEMPORARY MAPPING — UPDATE ACCORDING TO YOUR BACKEND
+-------------------------------------------------------- */
+const TYPE_MAP: Record<string, string> = {
+  "Article - Image": "1",
+  "Article - Text": "2",
+  "E-Book": "3",
+  Podcast: "4",
+  Video: "5",
+  "Youth-Voice": "6",
+};
+
+const CATEGORY_MAP: Record<string, string> = {
+  "Career Development": "1",
+  "Digital Literacy": "2",
+  Entrepreneurship: "3",
+  "Financial Literacy": "4",
+  "Health & Wellbeing": "5",
+  Language: "6",
+  "Non-Formal Education": "7",
+  "Personal Development": "8",
+  "Vocational & Livelihood": "9",
+};
 
 export default function ElibraryPage() {
-  const [items, setItems] = useState<any[]>(mock);
+  const [items, setItems] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [show, setShow] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -83,10 +62,23 @@ export default function ElibraryPage() {
   const [descEditor, setDescEditor] = useState(EditorState.createEmpty());
   const [textEditor, setTextEditor] = useState(EditorState.createEmpty());
 
-  // NEW ITEM
+  /* -------------------------------------------------------
+     LOAD ITEMS FROM API
+  -------------------------------------------------------- */
+  const load = async () => {
+    const res = await axios.get(API);
+    setItems(res.data);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  /* -------------------------------------------------------
+     OPEN NEW
+  -------------------------------------------------------- */
   const openNew = () => {
     setEditing(null);
-
     setForm({
       name: "",
       previewImage: "",
@@ -96,37 +88,22 @@ export default function ElibraryPage() {
       ebookPdf: "",
       youtubeLink: "",
     });
-
     setDescEditor(EditorState.createEmpty());
     setTextEditor(EditorState.createEmpty());
     setShow(true);
   };
 
-  // EDIT ITEM (NORMALIZE IMAGES)
+  /* -------------------------------------------------------
+     OPEN EDIT
+  -------------------------------------------------------- */
   const openEdit = (row: any) => {
     setEditing(row.id);
 
-    const normalizedImages =
-      (row.articleImages || []).map((img: any) => {
-        // If stored as string filename
-        if (typeof img === "string") {
-          return {
-            name: img,
-            file: null,
-            preview: `${process.env.PUBLIC_URL}/${img}`,
-          };
-        }
-
-        // If stored as object but missing preview
-        if (img.file && !img.preview) {
-          return {
-            ...img,
-            preview: URL.createObjectURL(img.file),
-          };
-        }
-
-        return img;
-      }) || [];
+    const normalizedImages = (row.articleImages || []).map((img: any) => ({
+      name: img,
+      file: null,
+      preview: `${process.env.PUBLIC_URL}/${img}`,
+    }));
 
     setForm({
       ...row,
@@ -136,8 +113,24 @@ export default function ElibraryPage() {
     setShow(true);
   };
 
-  // SAVE ITEM
-  const save = () => {
+  /* -------------------------------------------------------
+     UPLOAD FILE HELPER
+  -------------------------------------------------------- */
+  const uploadFile = async (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await axios.post(`${API}/upload`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res.data.url; // backend returns URL
+  };
+
+  /* -------------------------------------------------------
+     SAVE (CREATE OR UPDATE)
+  -------------------------------------------------------- */
+  const save = async () => {
     const description = JSON.stringify(
       convertToRaw(descEditor.getCurrentContent())
     );
@@ -145,35 +138,78 @@ export default function ElibraryPage() {
       convertToRaw(textEditor.getCurrentContent())
     );
 
-    const payload = { ...form, description, articleText };
+    let thumbnailUrl = form.thumbnailUrl || "";
+    let fileUrl = "";
+    let content = articleText;
 
+    /* ---- upload preview image ---- */
+    if (form.previewImage instanceof File) {
+      thumbnailUrl = await uploadFile(form.previewImage);
+    }
+
+    /* ---- upload article images or ebook ---- */
+    if (form.type === "Article - Image") {
+      if (form.articleImages[0]?.file) {
+        fileUrl = await uploadFile(form.articleImages[0].file);
+      }
+    }
+
+    if (form.type === "E-Book" && form.ebookPdf instanceof File) {
+      fileUrl = await uploadFile(form.ebookPdf);
+    }
+
+    if (form.youtubeLink) {
+      content = form.youtubeLink;
+    }
+
+    /* ---- build DTO ---- */
+    const dto = {
+      typeId: TYPE_MAP[form.type],
+      title: form.name,
+      description,
+      content,
+      fileUrl,
+      thumbnailUrl,
+      categoryId: CATEGORY_MAP[form.courseCategory],
+    };
+
+    /* ---- CREATE OR UPDATE ---- */
     if (editing) {
-      setItems((p) =>
-        p.map((x) => (x.id === editing ? { ...payload, id: x.id } : x))
-      );
+      await axios.patch(`${API}/${editing}`, dto);
     } else {
-      setItems((p) => [...p, { ...payload, id: Date.now() }]);
+      await axios.post(API, dto);
     }
 
     setShow(false);
+    load();
   };
 
-  const del = (id: any) => setItems((p) => p.filter((x) => x.id !== id));
+  /* -------------------------------------------------------
+     DELETE
+  -------------------------------------------------------- */
+  const del = async (id: any) => {
+    await axios.delete(`${API}/${id}`);
+    load();
+  };
 
-  // SEARCH FILTER
+  /* -------------------------------------------------------
+     SEARCH FILTER
+  -------------------------------------------------------- */
   const filtered = useMemo(() => {
     if (!search) return items;
     return items.filter((x) =>
-      x.name.toLowerCase().includes(search.toLowerCase())
+      x.title?.toLowerCase().includes(search.toLowerCase())
     );
   }, [search, items]);
 
-  // TABLE COLUMNS
+  /* -------------------------------------------------------
+     TABLE
+  -------------------------------------------------------- */
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
-      { header: "Name", accessorKey: "name" },
-      { header: "Type", accessorKey: "type" },
-      { header: "Category", accessorKey: "courseCategory" },
+      { header: "Name", accessorKey: "title" },
+      { header: "Type", accessorKey: "typeId" },
+      { header: "Category", accessorKey: "categoryId" },
       {
         header: "Actions",
         cell: ({ row }) => (
@@ -203,6 +239,9 @@ export default function ElibraryPage() {
     getCoreRowModel: getCoreRowModel(),
   });
 
+  /* -------------------------------------------------------
+     UI RENDER
+  -------------------------------------------------------- */
   return (
     <div className="m-4 bg-white p-6 rounded shadow-sm">
       <div className="d-flex justify-content-between mb-5">
@@ -275,7 +314,7 @@ export default function ElibraryPage() {
               onChange={(e) =>
                 setForm({
                   ...form,
-                  previewImage: e.target.files?.[0]?.name || "",
+                  previewImage: e.target.files?.[0] || "",
                 })
               }
             />
@@ -288,7 +327,7 @@ export default function ElibraryPage() {
               onChange={(e) => setForm({ ...form, type: e.target.value })}
             >
               <option value="">Select...</option>
-              {TYPES.map((t) => (
+              {Object.keys(TYPE_MAP).map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>
@@ -303,7 +342,7 @@ export default function ElibraryPage() {
               }
             >
               <option value="">Select...</option>
-              {CATEGORIES.map((c) => (
+              {Object.keys(CATEGORY_MAP).map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
@@ -322,7 +361,7 @@ export default function ElibraryPage() {
             <h5 className="fw-bold mt-5">Content Section</h5>
             <hr />
 
-            {/* ✅ ARTICLE WITH IMAGES */}
+            {/* ARTICLE WITH IMAGES */}
             {form.type === "Article - Image" && (
               <div className="mt-4">
                 <label className="form-label fw-bold">
@@ -335,15 +374,12 @@ export default function ElibraryPage() {
                   accept="image/*"
                   className="form-control form-control-solid mb-4"
                   onChange={(e) => {
-                    if (!e.target.files) return;
-                    const files = Array.from(e.target.files);
-
+                    const files = Array.from(e.target.files || []);
                     const newImages = files.map((file) => ({
                       name: file.name,
                       file,
                       preview: URL.createObjectURL(file),
                     }));
-
                     setForm({
                       ...form,
                       articleImages: [...form.articleImages, ...newImages],
@@ -355,7 +391,6 @@ export default function ElibraryPage() {
                   {form.articleImages.map((img: any, idx: number) => (
                     <div className="col-6 col-md-4 col-lg-3" key={idx}>
                       <div className="card shadow-sm h-100 position-relative">
-                        {/* REMOVE BUTTON */}
                         <button
                           type="button"
                           className="btn btn-icon btn-sm btn-light-danger position-absolute top-0 end-0 m-2"
@@ -371,7 +406,6 @@ export default function ElibraryPage() {
                           <i className="bi bi-x-lg fs-6"></i>
                         </button>
 
-                        {/* IMAGE PREVIEW */}
                         <img
                           src={
                             img.preview
@@ -382,10 +416,7 @@ export default function ElibraryPage() {
                           }
                           alt="preview"
                           className="card-img-top"
-                          style={{
-                            height: "150px",
-                            objectFit: "cover",
-                          }}
+                          style={{ height: "150px", objectFit: "cover" }}
                         />
 
                         <div className="card-body py-2 px-3">
@@ -423,10 +454,7 @@ export default function ElibraryPage() {
                   accept="application/pdf"
                   className="form-control form-control-solid"
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      ebookPdf: e.target.files?.[0]?.name || "",
-                    })
+                    setForm({ ...form, ebookPdf: e.target.files?.[0] })
                   }
                 />
               </>

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { KTCard, KTCardBody } from "../../../../_metronic/helpers";
 import { Form, Button, Spinner, Alert } from "react-bootstrap";
-import { QuillEditor } from "./QuillEditor";
-import axios from "axios"; // Ensure axios is installed: npm install axios
+import { QuillEditor } from "./QuillEditor"; // Ensure this path is correct for your project
+import axios from "axios";
 
 // --- 1. DEFINE ACTIVITY TYPE ENUM ---
 enum ActivityType {
@@ -15,9 +15,10 @@ enum ActivityType {
   PAGE = "PAGE",
 }
 
-// Map frontend Enum to Backend Object/String logic if necessary
-// Based on your requirements, the API expects a specific format.
-// We will handle this in the payload generation.
+// --- 2. CONFIGURATION ---
+const BASE_API_URL = "https://mypadminapi.bitmyanmar.info/api";
+const MINIO_UPLOAD_PUBLIC = `${BASE_API_URL}/files/upload-public-folder`;
+const MINIO_UPLOAD_H5P = `${BASE_API_URL}/files/upload-h5p`; // The new endpoint
 
 export const EditActivity = () => {
   const [searchParams] = useSearchParams();
@@ -30,35 +31,30 @@ export const EditActivity = () => {
   // Loading & Error States
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form States
   const [name, setName] = useState("");
   const [type, setType] = useState<ActivityType>(ActivityType.PAGE);
   const [externalUrl, setExternalUrl] = useState("");
-  const [sectionId, setSectionId] = useState(""); // Need to preserve this for the update
-  const [activityOrder, setActivityOrder] = useState(0); // Need to preserve this
+  const [sectionId, setSectionId] = useState("");
+  const [activityOrder, setActivityOrder] = useState(0);
 
-  // STATE FOR EDITOR
+  // Editor & Content States
   const [descriptionContent, setDescriptionContent] = useState("");
-  const [pageContent, setPageContent] = useState("");
+  const [pageContent, setPageContent] = useState(""); // Stores URL (files), Path (H5P), or HTML (Page)
 
   // Helper: Detect type based on API response data
   const determineTypeFromApi = (act: any): ActivityType => {
-    const rawType = act.type; // This might be an object or string based on schema
-    // Since the API definition for type says "{}", we need to be careful.
-    // Assuming 'type' in DB usually maps to your Enum logic or string.
-
-    // For now, let's look at the content or a type string if it exists
-    // If your backend returns type as a string "PAGE", "VIDEO", etc:
+    const rawType = act.type;
     const typeStr = (
       typeof rawType === "string" ? rawType : rawType?.name || ""
     ).toUpperCase();
 
-    if (typeStr === "PAGE") return ActivityType.PAGE;
-    if (typeStr === "H5P") return ActivityType.H5P;
+    if (typeStr in ActivityType) return typeStr as ActivityType;
 
-    // Fallback logic based on content if type isn't explicit
+    // Fallback logic
     if (act.content) {
       if (
         act.content.includes("youtube.com") ||
@@ -70,8 +66,6 @@ export const EditActivity = () => {
         return ActivityType.PDF_FILE;
       }
     }
-
-    // Default
     return ActivityType.PAGE;
   };
 
@@ -82,13 +76,7 @@ export const EditActivity = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch Course Data to find the section and activity
-        // Note: Providing the courseId to get the structure is good,
-        // but if there is a direct endpoint for single activity, use that.
-        // Based on your provided code, you fetch the course to find the activity.
-        const res = await axios.get(
-          `https://mypadminapi.bitmyanmar.info/api/courses/${courseId}`
-        );
+        const res = await axios.get(`${BASE_API_URL}/courses/${courseId}`);
         const data = res.data;
 
         let foundActivity: any = null;
@@ -112,14 +100,10 @@ export const EditActivity = () => {
           setSectionId(foundSectionId);
           setActivityOrder(foundActivity.order || 0);
 
-          // Determine Type
           const mappedType = determineTypeFromApi(foundActivity);
           setType(mappedType);
-
-          // Set Description
           setDescriptionContent(foundActivity.description || "");
 
-          // Set Content
           const content = foundActivity.content || "";
 
           if (mappedType === ActivityType.PAGE) {
@@ -129,8 +113,10 @@ export const EditActivity = () => {
             mappedType === ActivityType.YOUTUBE_LINK
           ) {
             setExternalUrl(content);
+          } else {
+            // For PDF, Video, and H5P, the content is the file path/URL
+            setPageContent(content);
           }
-          // For Files, we usually don't set a "value" in a file input, so we leave it empty or show a label.
         } else {
           setError("Activity not found in this course.");
         }
@@ -145,17 +131,92 @@ export const EditActivity = () => {
     fetchData();
   }, [courseId, activityId]);
 
-  // --- 4. Handle Save ---
-  // --- 4. Handle Save ---
+  // --- 4. Handle File Upload Logic ---
+  const handleFileUpload = async (
+    file: File,
+    targetType: ActivityType
+  ): Promise<void> => {
+    if (!file) return;
+
+    setUploadingFile(true);
+    setError(null);
+
+    try {
+      // === OPTION A: H5P UPLOAD (Private & Extracted) ===
+      if (targetType === ActivityType.H5P) {
+        if (!activityId) {
+          throw new Error("Activity ID is missing. Cannot upload H5P.");
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("activityId", activityId);
+
+        const response = await axios.post(MINIO_UPLOAD_H5P, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        // Backend returns: { message: "...", data: { extractedFolder: "...", originalPath: "..." } }
+        const result = response.data.data;
+
+        // Save the extracted folder path to 'pageContent'
+        // This allows the H5P player to find the 'h5p.json' inside this folder
+        setPageContent(result.extractedFolder);
+
+        alert("H5P Package uploaded and extracted successfully!");
+      }
+
+      // === OPTION B: STANDARD FILE UPLOAD (Public PDF/Video) ===
+      else {
+        const folderName = `activity-${targetType
+          .toLowerCase()
+          .replace("_file", "s")}`;
+        const formData = new FormData();
+        formData.append("folder", folderName);
+        formData.append("files", file);
+
+        const response = await axios.post(MINIO_UPLOAD_PUBLIC, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        const uploadedUrls = response.data.urls;
+
+        if (uploadedUrls && uploadedUrls.length > 0) {
+          setPageContent(uploadedUrls[0]);
+          alert("File uploaded successfully!");
+        } else {
+          throw new Error("Upload successful but no URL returned.");
+        }
+      }
+    } catch (err: any) {
+      console.error("File Upload Error:", err);
+      const apiMessage =
+        err.response?.data?.message || "Failed to upload file.";
+      setError(
+        `Upload Error: ${
+          Array.isArray(apiMessage) ? apiMessage.join(", ") : apiMessage
+        }`
+      );
+      setPageContent(""); // Clear content on error
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  // --- 5. Handle Save ---
   const handleSave = async (redirect: boolean) => {
     if (!name) {
       alert("Name is required");
       return;
     }
+    if (uploadingFile) {
+      alert("Please wait for the file upload to complete.");
+      return;
+    }
 
     setSubmitting(true);
     try {
-      // 1. Prepare Content based on Type
+      // Prepare Content based on Type
       let finalContent = "";
 
       switch (type) {
@@ -169,41 +230,36 @@ export const EditActivity = () => {
         case ActivityType.PDF_FILE:
         case ActivityType.VIDEO_FILE:
         case ActivityType.H5P:
-          // Keep existing content if no new file logic is implemented yet
-          // or map to the file URL if you have one.
+          // For files and H5P, pageContent holds the URL or Path
           finalContent = pageContent;
+          if (!finalContent) {
+            alert("File/Content is missing. Please upload a file.");
+            setSubmitting(false);
+            return;
+          }
           break;
         default:
           finalContent = "";
       }
 
-      // 2. Construct Payload
       const payload = {
         title: name,
-        // FIX: Send the string directly (e.g., "PAGE"), NOT an object.
         type: type,
         content: finalContent,
-        order: activityOrder, // Ensure this is a number
-        sectionId: sectionId, // Ensure this is the valid UUID string
+        order: activityOrder,
+        sectionId: sectionId,
         description: descriptionContent,
       };
 
-      console.log("Sending Payload:", payload); // Debugging
-
-      // 3. Call API (PUT)
-      await axios.patch(
-        `https://mypadminapi.bitmyanmar.info/api/activities/${activityId}`,
-        payload
-      );
+      await axios.patch(`${BASE_API_URL}/activities/${activityId}`, payload);
 
       if (redirect) {
-        navigate(-1); // Go back
+        navigate(-1);
       } else {
         alert("Saved successfully!");
       }
     } catch (err: any) {
       console.error("API Error:", err);
-      // Show the exact error message from backend if available
       const apiMessage =
         err.response?.data?.message || "Failed to save activity.";
       alert(
@@ -224,14 +280,12 @@ export const EditActivity = () => {
     );
   }
 
-  if (error) {
-    return <div className="alert alert-danger m-5">{error}</div>;
-  }
-
   return (
     <KTCard className="m-3">
       <KTCardBody>
         <Form>
+          {error && <Alert variant="danger">{error}</Alert>}
+
           {/* NAME */}
           <Form.Group className="mb-5">
             <Form.Label className="required fw-bold fs-6">Name</Form.Label>
@@ -239,6 +293,7 @@ export const EditActivity = () => {
               placeholder="Enter activity name..."
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={submitting || uploadingFile}
             />
           </Form.Group>
 
@@ -254,68 +309,95 @@ export const EditActivity = () => {
             </div>
           </Form.Group>
 
-          {/* TYPE SELECT */}
+          {/* TYPE SELECTOR */}
           <Form.Group className="mb-5">
             <Form.Label className="required fw-bold fs-6">Type</Form.Label>
             <Form.Select
               value={type}
-              onChange={(e) => setType(e.target.value as ActivityType)}
+              onChange={(e) => {
+                setType(e.target.value as ActivityType);
+                setPageContent(""); // Reset content on type change
+                setExternalUrl("");
+              }}
+              disabled={submitting || uploadingFile}
             >
               <option value={ActivityType.PAGE}>Page</option>
               <option value={ActivityType.PDF_FILE}>PDF File</option>
               <option value={ActivityType.VIDEO_FILE}>Video File</option>
-              <option value={ActivityType.H5P}>H5P</option>
+              <option value={ActivityType.H5P}>H5P Interactive Content</option>
               <option value={ActivityType.WEB_URL}>Web URL</option>
               <option value={ActivityType.YOUTUBE_LINK}>YouTube Link</option>
             </Form.Select>
           </Form.Group>
 
-          {/* --- TYPE SPECIFIC FIELDS --- */}
+          {/* --- DYNAMIC INPUT FIELDS BASED ON TYPE --- */}
 
-          {/* PDF / VIDEO FILE */}
+          {/* 1. FILE UPLOAD (PDF, VIDEO, H5P) */}
           {(type === ActivityType.PDF_FILE ||
-            type === ActivityType.VIDEO_FILE) && (
+            type === ActivityType.VIDEO_FILE ||
+            type === ActivityType.H5P) && (
             <Form.Group className="mb-5">
-              <Form.Label className="fw-bold fs-6">
+              <Form.Label className="required fw-bold fs-6">
                 Upload{" "}
-                {type === ActivityType.PDF_FILE ? "PDF File" : "Video File"}
+                {type === ActivityType.H5P
+                  ? "H5P Package"
+                  : type === ActivityType.PDF_FILE
+                  ? "PDF File"
+                  : "Video File"}
+                {uploadingFile && (
+                  <Spinner
+                    animation="border"
+                    size="sm"
+                    className="ms-2"
+                    variant="primary"
+                  />
+                )}
               </Form.Label>
               <div className="p-4 border rounded bg-light">
                 <Form.Control
                   type="file"
-                  accept={type === ActivityType.PDF_FILE ? ".pdf" : "video/*"}
-                  // Logic to handle file upload to S3 and setPageContent(url) would go here
-                  onChange={(e) => {
-                    alert(
-                      "File upload logic needs S3 integration implemented here."
-                    );
+                  accept={
+                    type === ActivityType.PDF_FILE
+                      ? ".pdf"
+                      : type === ActivityType.VIDEO_FILE
+                      ? "video/*"
+                      : ".h5p" // Accept H5P extension
+                  }
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleFileUpload(file, type);
+                    }
                   }}
+                  disabled={uploadingFile || submitting}
                 />
+
+                {/* Upload Status / Preview Link */}
                 {pageContent && !pageContent.startsWith("<") && (
-                  <div className="mt-2 text-primary">
-                    Current file:{" "}
-                    <a href={pageContent} target="_blank" rel="noreferrer">
-                      View File
-                    </a>
+                  <div className="mt-3">
+                    <div className="text-primary fw-bold">
+                      File Uploaded Successfully
+                    </div>
+                    <div className="text-muted fs-7 text-break">
+                      Path/URL: {pageContent}
+                    </div>
                   </div>
+                )}
+
+                {/* Specific Hint for H5P */}
+                {type === ActivityType.H5P && (
+                  <Alert variant="info" className="mt-3 mb-0">
+                    <small>
+                      Uploading will extract the contents to a private folder.
+                      The path saved will be the extracted folder location.
+                    </small>
+                  </Alert>
                 )}
               </div>
             </Form.Group>
           )}
 
-          {/* H5P */}
-          {type === ActivityType.H5P && (
-            <Form.Group className="mb-5">
-              <Form.Label className="required fw-bold fs-6">
-                Package file
-              </Form.Label>
-              <div className="p-4 border rounded bg-light">
-                <Form.Control type="file" accept=".h5p" />
-              </div>
-            </Form.Group>
-          )}
-
-          {/* PAGE */}
+          {/* 2. RICH TEXT PAGE EDITOR */}
           {type === ActivityType.PAGE && (
             <Form.Group className="mb-5">
               <Form.Label className="fw-bold fs-6">Page content</Form.Label>
@@ -332,7 +414,7 @@ export const EditActivity = () => {
             </Form.Group>
           )}
 
-          {/* WEB URL / YOUTUBE */}
+          {/* 3. EXTERNAL LINKS (URL, YOUTUBE) */}
           {(type === ActivityType.WEB_URL ||
             type === ActivityType.YOUTUBE_LINK) && (
             <Form.Group className="mb-5">
@@ -345,23 +427,24 @@ export const EditActivity = () => {
                 placeholder="https://..."
                 value={externalUrl}
                 onChange={(e) => setExternalUrl(e.target.value)}
+                disabled={submitting || uploadingFile}
               />
             </Form.Group>
           )}
 
-          {/* FOOTER BUTTONS */}
+          {/* ACTION BUTTONS */}
           <div className="d-flex gap-3 mt-10">
             <Button
               variant="primary"
               onClick={() => handleSave(true)}
-              disabled={submitting}
+              disabled={submitting || uploadingFile}
             >
               {submitting ? "Saving..." : "Save and return to course"}
             </Button>
             <Button
               variant="success"
               onClick={() => handleSave(false)}
-              disabled={submitting}
+              disabled={submitting || uploadingFile}
             >
               {submitting ? "Saving..." : "Save and stay"}
             </Button>
