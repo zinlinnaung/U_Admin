@@ -15,6 +15,10 @@ import SliderPage from "../modules/apps/home_page/SliderPage";
 import { EditActivity } from "../modules/apps/courses/EditActivity";
 import HomeCategoryPage from "../modules/apps/home_page/HomeCategoryPage";
 import ElibraryPage from "../modules/apps/e-library/Elibrary";
+import CertificateEditor from "../modules/apps/certificate/CertificateEditor";
+import CertificateEditor2 from "../modules/apps/certificate/CertificateEditor2";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -100,6 +104,17 @@ const PrivateRoutes = () => {
           element={
             <SuspensedView>
               <StudentPage />
+            </SuspensedView>
+          }
+        />
+
+        <Route
+          path="apps/certificate"
+          element={
+            <SuspensedView>
+              <DndProvider backend={HTML5Backend}>
+                <CertificateEditor2 />
+              </DndProvider>
             </SuspensedView>
           }
         />

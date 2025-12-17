@@ -50,9 +50,6 @@ export type Course = {
 
 type Category = { id: string; name: string };
 
-// ----------------------
-// MAIN COMPONENT
-// ----------------------
 const CoursePage: FC = () => {
   const navigate = useNavigate();
 
@@ -74,7 +71,7 @@ const CoursePage: FC = () => {
     previewImage: null,
     previewVideo: null,
     description: "",
-    categoryId: "", // Initialize as empty string or null
+    categoryId: "",
     subCategoryId: "",
     parentCourseId: null,
     duration: 40,
@@ -85,17 +82,11 @@ const CoursePage: FC = () => {
     isDeleted: false,
   });
 
-  // Rich Text Editor State
   const [descriptionEditor, setDescriptionEditor] = useState(
     EditorState.createEmpty()
   );
-
-  // File Upload State
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
-  // ----------------------
-  // Load initial data
-  // ----------------------
   useEffect(() => {
     loadCourses();
     loadCategories();
@@ -120,7 +111,7 @@ const CoursePage: FC = () => {
   };
 
   const loadSubCategories = async (categoryId?: string | null) => {
-    if (!categoryId) {
+    if (!categoryId || categoryId === "") {
       setSubCategories([]);
       return;
     }
@@ -134,9 +125,6 @@ const CoursePage: FC = () => {
     }
   };
 
-  // ----------------------
-  // Helpers
-  // ----------------------
   const setDescriptionFromHtml = (html?: string | null) => {
     if (!html) {
       setDescriptionEditor(EditorState.createEmpty());
@@ -154,11 +142,7 @@ const CoursePage: FC = () => {
     setDescriptionEditor(EditorState.createWithContent(contentState));
   };
 
-  // ----------------------
-  // Handlers
-  // ----------------------
   const openCreateModal = () => {
-    console.log("Opening Create Modal"); // Debugging
     setEditingCourse(null);
     setForm({
       name: "",
@@ -186,10 +170,13 @@ const CoursePage: FC = () => {
     if (!course) return;
 
     setEditingCourse(course);
-    setForm({ ...course });
+    setForm({
+      ...course,
+      categoryId: course.categoryId || "",
+      subCategoryId: course.subCategoryId || "",
+    });
     setDescriptionFromHtml(course.description || "");
     setSelectedImageFile(null);
-    // Load subcategories based on the existing category
     loadSubCategories(course.categoryId || null);
     setShowModal(true);
   };
@@ -220,10 +207,9 @@ const CoursePage: FC = () => {
   ) => {
     const { name, value, type } = e.target;
 
-    // Handle Category Logic specifically
     if (name === "categoryId") {
       setForm((f) => ({ ...f, categoryId: value, subCategoryId: "" }));
-      loadSubCategories(value || null);
+      loadSubCategories(value);
       return;
     }
 
@@ -252,7 +238,7 @@ const CoursePage: FC = () => {
       });
       return res.data?.url || selectedImageFile.name;
     } catch (err) {
-      console.warn("Image upload failed, falling back to filename", err);
+      console.warn("Image upload failed", err);
       return selectedImageFile.name;
     }
   };
@@ -269,15 +255,23 @@ const CoursePage: FC = () => {
       );
       const uploadedImageUrl = await uploadImageIfAny();
 
+      // IMPORTANT: Clean the payload to convert empty strings to null for UUID fields
       const payload: Partial<Course> = {
         name: form.name,
         image: uploadedImageUrl ?? form.image ?? null,
         previewImage: form.previewImage ?? null,
         previewVideo: form.previewVideo ?? null,
-        description: descriptionHtml || form.description || null,
-        categoryId: form.categoryId ?? null,
-        subCategoryId: form.subCategoryId ?? null,
-        parentCourseId: form.parentCourseId ?? null,
+        description: descriptionHtml || null,
+        categoryId:
+          form.categoryId && form.categoryId !== "" ? form.categoryId : null,
+        subCategoryId:
+          form.subCategoryId && form.subCategoryId !== ""
+            ? form.subCategoryId
+            : null,
+        parentCourseId:
+          form.parentCourseId && form.parentCourseId !== ""
+            ? form.parentCourseId
+            : null,
         duration: form.duration ?? 0,
         videoCount: form.videoCount ?? 0,
         rating: form.rating ?? 0,
@@ -285,7 +279,7 @@ const CoursePage: FC = () => {
       };
 
       if (editingCourse && editingCourse.id) {
-        await axios.put(`${API_URL}/${editingCourse.id}`, payload);
+        await axios.patch(`${API_URL}/${editingCourse.id}`, payload);
       } else {
         await axios.post(API_URL, payload);
       }
@@ -294,13 +288,11 @@ const CoursePage: FC = () => {
       handleClose();
     } catch (err) {
       console.error("Save error:", err);
-      alert("Error saving course.");
+      alert("Error saving course. Check console for details.");
     }
   };
 
-  // ----------------------
-  // Table Configuration
-  // ----------------------
+  // Table Config
   const filteredData = useMemo(() => {
     if (!search) return courses;
     const s = search.toLowerCase();
@@ -337,8 +329,6 @@ const CoursePage: FC = () => {
       },
       {
         header: "Category",
-        // Use a function component for the cell to ensure it rerenders
-        // when the categories state updates, even if the main columns memo does not.
         cell: ({ row }) => {
           if (!categories.length || !row.original.categoryId) return "-";
           const cat = categories.find((c) => c.id === row.original.categoryId);
@@ -381,12 +371,8 @@ const CoursePage: FC = () => {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // ----------------------
-  // RENDER
-  // ----------------------
   return (
     <div className="m-4 bg-white p-6 rounded shadow-sm">
-      {/* Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-5">
         <h2 className="fw-bold text-dark mb-3">Courses</h2>
         <div className="d-flex align-items-center gap-3">
@@ -403,14 +389,12 @@ const CoursePage: FC = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          {/* Add Button */}
           <button className="btn btn-primary" onClick={openCreateModal}>
             Add Course
           </button>
         </div>
       </div>
 
-      {/* Table */}
       <KTCard>
         <KTCardBody className="py-4">
           <div className="table-responsive" style={{ minHeight: "300px" }}>
@@ -431,10 +415,9 @@ const CoursePage: FC = () => {
                           header.column.columnDef.header,
                           header.getContext()
                         )}
-                        {{
-                          asc: " 🔼",
-                          desc: " 🔽",
-                        }[header.column.getIsSorted() as string] ?? null}
+                        {{ asc: " 🔼", desc: " 🔽" }[
+                          header.column.getIsSorted() as string
+                        ] ?? null}
                       </th>
                     ))}
                   </tr>
@@ -467,24 +450,15 @@ const CoursePage: FC = () => {
         </KTCardBody>
       </KTCard>
 
-      {/* Edit/Create Modal */}
-      <Modal
-        show={showModal}
-        onHide={handleClose}
-        size="xl"
-        centered
-        className="modal-fullscreen-md-down"
-      >
+      <Modal show={showModal} onHide={handleClose} size="xl" centered>
         <Modal.Header closeButton>
           <Modal.Title>
             {editingCourse ? "Edit Course" : "Add New Course"}
           </Modal.Title>
         </Modal.Header>
-
         <Modal.Body className="py-5">
           <form noValidate>
             <div className="row">
-              {/* Course Name */}
               <div className="col-md-6 mb-3">
                 <label className="form-label required">Course Name</label>
                 <input
@@ -493,11 +467,8 @@ const CoursePage: FC = () => {
                   name="name"
                   value={form.name}
                   onChange={handleChange}
-                  placeholder="Enter course name"
                 />
               </div>
-
-              {/* Category */}
               <div className="col-md-6 mb-3">
                 <label className="form-label">Category</label>
                 <select
@@ -514,8 +485,6 @@ const CoursePage: FC = () => {
                   ))}
                 </select>
               </div>
-
-              {/* Sub Category */}
               <div className="col-md-6 mb-3">
                 <label className="form-label">Sub Category</label>
                 <select
@@ -533,8 +502,6 @@ const CoursePage: FC = () => {
                   ))}
                 </select>
               </div>
-
-              {/* Duration */}
               <div className="col-md-3 mb-3">
                 <label className="form-label">Duration (min)</label>
                 <input
@@ -545,8 +512,6 @@ const CoursePage: FC = () => {
                   onChange={handleChange}
                 />
               </div>
-
-              {/* Video Count */}
               <div className="col-md-3 mb-3">
                 <label className="form-label">Video Count</label>
                 <input
@@ -557,8 +522,6 @@ const CoursePage: FC = () => {
                   onChange={handleChange}
                 />
               </div>
-
-              {/* Image Upload */}
               <div className="col-md-12 mb-3">
                 <label className="form-label">Course Image</label>
                 <input
@@ -567,22 +530,13 @@ const CoursePage: FC = () => {
                   accept="image/*"
                   onChange={handleImageFileChange}
                 />
-                {form.image && !selectedImageFile && (
-                  <div className="mt-2">
-                    <span className="text-muted">Current: {form.image}</span>
-                  </div>
-                )}
               </div>
-
-              {/* Description Editor */}
               <div className="col-md-12 mb-3">
                 <label className="form-label">Description</label>
                 <div className="border rounded p-3">
                   <Editor
                     editorState={descriptionEditor}
                     onEditorStateChange={setDescriptionEditor}
-                    wrapperClassName="demo-wrapper"
-                    editorClassName="demo-editor"
                     editorStyle={{ minHeight: "200px" }}
                   />
                 </div>
@@ -590,7 +544,6 @@ const CoursePage: FC = () => {
             </div>
           </form>
         </Modal.Body>
-
         <Modal.Footer>
           <button className="btn btn-light" onClick={handleClose}>
             Cancel
@@ -606,9 +559,7 @@ const CoursePage: FC = () => {
 
 export default CoursePage;
 
-// ----------------------
-// ActionCell Component
-// ----------------------
+// ActionCell Component remains largely the same
 type ActionCellProps = {
   courseId?: string;
   onDelete: (id?: string) => void;
@@ -617,59 +568,41 @@ type ActionCellProps = {
 
 const ActionCell: FC<ActionCellProps> = ({ courseId, onDelete, onEdit }) => {
   const [open, setOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      if (ref.current && !ref.current.contains(event.target as Node))
         setOpen(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (open && ref.current) {
-      const rect = ref.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const dropdownHeight = 140;
-      setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > dropdownHeight);
-    }
-  }, [open]);
-
   return (
     <div className="position-relative d-inline-block" ref={ref}>
       <button
         className="btn btn-sm btn-light d-flex align-items-center gap-1"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen(!open)}
       >
-        Actions
+        Actions{" "}
         <i
           className={`bi ${open ? "bi-caret-up-fill" : "bi-caret-down-fill"}`}
         ></i>
       </button>
-
       {open && (
         <div
           className="dropdown-menu show p-2 shadow"
           style={{
             position: "absolute",
-            top: openUpward ? "auto" : "100%",
-            bottom: openUpward ? "100%" : "auto",
-            transform: openUpward ? "translateY(-4px)" : "translateY(4px)",
             right: 0,
-            minWidth: "160px",
             zIndex: 1050,
             backgroundColor: "white",
-            borderRadius: "0.475rem",
           }}
         >
           <button
-            className="dropdown-item d-flex align-items-center cursor-pointer"
+            className="dropdown-item"
             onClick={() => {
               if (courseId) onEdit(courseId);
               setOpen(false);
@@ -677,9 +610,8 @@ const ActionCell: FC<ActionCellProps> = ({ courseId, onDelete, onEdit }) => {
           >
             <i className="bi bi-pencil-square me-2"></i> Edit
           </button>
-
           <button
-            className="dropdown-item d-flex align-items-center cursor-pointer"
+            className="dropdown-item"
             onClick={() => {
               if (courseId) onDelete(courseId);
               setOpen(false);
@@ -687,13 +619,10 @@ const ActionCell: FC<ActionCellProps> = ({ courseId, onDelete, onEdit }) => {
           >
             <i className="bi bi-trash me-2"></i> Delete
           </button>
-
           <button
-            className="dropdown-item d-flex align-items-center cursor-pointer"
+            className="dropdown-item"
             onClick={() => {
-              if (courseId) {
-                navigate(`/apps/sections?id=${courseId}`);
-              }
+              if (courseId) navigate(`/apps/sections?id=${courseId}`);
               setOpen(false);
             }}
           >
