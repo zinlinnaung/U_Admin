@@ -49,6 +49,12 @@ export function AsideMenuMain() {
           hasBullet={true}
           bsTitle="Course management"
         />
+        <AsideMenuItem
+          to="/apps/certificate"
+          title="Certificate Template"
+          hasBullet={true}
+          bsTitle="template management"
+        />
       </AsideMenuItemWithSubMain>
 
       <AsideMenuItemWithSubMain

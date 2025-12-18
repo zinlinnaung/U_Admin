@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import axios from "axios";
 import { KTIcon } from "../../../../_metronic/helpers";
 
 // --- Types ---
@@ -15,21 +16,22 @@ interface ComponentData {
   id: string;
   type: "name" | "date";
   position: Position;
-  value: string; // "Visual" value for editor preview only
+  value: string;
 }
 
-interface TemplateComponentData {
+// Type for the data coming FROM the API
+interface ApiTemplate {
   id: string;
-  type: "name" | "date";
-  position: Position;
-  variableKey: string; // The placeholder for the database
-}
-
-interface TemplateData {
   name: string;
   backgroundImage: string | null;
-  components: TemplateComponentData[];
-  createdAt: string;
+  components: {
+    data: Array<{
+      id: string;
+      type: "name" | "date";
+      position: Position;
+      variableKey: string;
+    }>;
+  };
 }
 
 const ItemTypes = {
@@ -139,10 +141,37 @@ const CertificateEditor: React.FC = () => {
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(
     null
   );
+
+  // Lists and Loading States
+  const [availableTemplates, setAvailableTemplates] = useState<ApiTemplate[]>(
+    []
+  );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingList, setIsLoadingList] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const API_URL =
+    "https://mypadminapi.bitmyanmar.info/api/certificate-templates";
+
+  // --- Fetch Templates on Mount ---
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+
+  const fetchTemplates = async () => {
+    setIsLoadingList(true);
+    try {
+      const response = await axios.get(API_URL);
+      setAvailableTemplates(response.data);
+    } catch (error) {
+      console.error("Failed to fetch templates", error);
+    } finally {
+      setIsLoadingList(false);
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -154,28 +183,23 @@ const CertificateEditor: React.FC = () => {
     }
   };
 
-  // Improved Drag & Drop Coordinate Calculation
   const [, drop] = useDrop(() => ({
     accept: [ItemTypes.COMPONENT, ItemTypes.PLACED_COMPONENT],
     drop: (item: any, monitor) => {
       const canvasRect = canvasRef.current?.getBoundingClientRect();
       const clientOffset = monitor.getClientOffset();
-
       if (!canvasRect || !clientOffset) return;
 
-      // Exact coordinates relative to canvas top-left
       const x = Math.round(clientOffset.x - canvasRect.left);
       const y = Math.round(clientOffset.y - canvasRect.top);
 
       if (item.id) {
-        // Update existing: Adjust slightly to keep pointer roughly in the middle of text
         setComponents((prev) =>
           prev.map((c) =>
             c.id === item.id ? { ...c, position: { x: x - 40, y: y - 15 } } : c
           )
         );
       } else {
-        // Add new
         const newComp: ComponentData = {
           id: `${item.type}-${Date.now()}`,
           type: item.type,
@@ -193,21 +217,52 @@ const CertificateEditor: React.FC = () => {
     setSelectedComponentId(null);
   };
 
-  const getTemplateData = (): TemplateData => ({
-    name: templateName,
-    backgroundImage,
-    components: components.map((c) => ({
-      id: c.id,
-      type: c.type,
-      position: c.position,
-      variableKey: c.type === "name" ? "{{student_name}}" : "{{date}}",
-    })),
-    createdAt: new Date().toISOString(),
-  });
+  // --- Load Template into Editor ---
+  const loadTemplate = (template: ApiTemplate) => {
+    setTemplateName(template.name);
+    setBackgroundImage(template.backgroundImage);
 
-  const handleSave = () => {
-    console.log("Saving to DB:", getTemplateData());
-    alert("Template saved successfully! Check console for coordinate data.");
+    // Map backend JSON data back to local state array
+    const loadedComponents: ComponentData[] = template.components.data.map(
+      (comp) => ({
+        id: comp.id,
+        type: comp.type,
+        position: comp.position,
+        value: comp.type === "name" ? "John Doe" : "12/12/2025", // Default preview values
+      })
+    );
+
+    setComponents(loadedComponents);
+    setSelectedComponentId(null);
+  };
+
+  const handleSave = async () => {
+    if (!backgroundImage) return alert("Please upload a background image.");
+
+    setIsSaving(true);
+    const payload = {
+      id: `cert-${Date.now()}`,
+      name: templateName,
+      backgroundImage: backgroundImage,
+      components: {
+        data: components.map((c) => ({
+          id: c.id,
+          type: c.type,
+          position: c.position,
+          variableKey: c.type === "name" ? "{{student_name}}" : "{{date}}",
+        })),
+      },
+    };
+
+    try {
+      await axios.post(API_URL, payload);
+      alert("Template saved successfully!");
+      fetchTemplates(); // Refresh the list
+    } catch (error: any) {
+      alert("Failed to save template.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const generatePDF = async () => {
@@ -232,7 +287,7 @@ const CertificateEditor: React.FC = () => {
         canvas.width,
         canvas.height
       );
-      pdf.save("preview.pdf");
+      pdf.save(`${templateName}.pdf`);
       setIsGenerating(false);
     }, 100);
   };
@@ -250,7 +305,6 @@ const CertificateEditor: React.FC = () => {
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
               />
-
               <button
                 className="btn btn-outline btn-outline-dashed btn-outline-primary w-100 mb-3"
                 onClick={() => fileInputRef.current?.click()}
@@ -288,8 +342,12 @@ const CertificateEditor: React.FC = () => {
             <div className="card-header">
               <div className="card-title fs-4 fw-bold">Canvas</div>
               <div className="card-toolbar gap-2">
-                <button className="btn btn-sm btn-primary" onClick={handleSave}>
-                  Save
+                <button
+                  className="btn btn-sm btn-primary"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save Template"}
                 </button>
                 <button
                   className="btn btn-sm btn-success"
@@ -343,8 +401,9 @@ const CertificateEditor: React.FC = () => {
 
         {/* RIGHT PANEL */}
         <div className="w-lg-300px">
-          <div className="card">
-            <div className="card-header bg-primary py-3">
+          {/* Properties Card */}
+          <div className="card mb-5">
+            <div className="card-header bg-primary py-3 min-h-auto">
               <h3 className="card-title fs-6 text-white">Properties</h3>
             </div>
             <div className="card-body p-5">
@@ -369,7 +428,6 @@ const CertificateEditor: React.FC = () => {
                       )
                     }
                   />
-                  <div className="separator mb-4"></div>
                   <button
                     className="btn btn-sm btn-light-danger w-100"
                     onClick={() => deleteComponent(selectedComponentId)}
@@ -378,8 +436,56 @@ const CertificateEditor: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-10">
-                  Select a field to edit
+                <div className="text-center text-gray-500 py-5">
+                  Select a field
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Templates List Card */}
+          <div className="card">
+            <div className="card-header bg-success py-3 min-h-auto">
+              <h3 className="card-title fs-6 text-white">
+                Available Templates
+              </h3>
+            </div>
+            <div
+              className="card-body p-0 scroll-y"
+              style={{ maxHeight: "400px" }}
+            >
+              {isLoadingList ? (
+                <div className="p-5 text-center">Loading...</div>
+              ) : (
+                <div className="list-group list-group-flush">
+                  {availableTemplates.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      className="list-group-item list-group-item-action p-4 d-flex align-items-center"
+                      onClick={() => loadTemplate(tpl)}
+                    >
+                      <div className="symbol symbol-40px me-3">
+                        {tpl.backgroundImage ? (
+                          <img src={tpl.backgroundImage} alt="tpl" />
+                        ) : (
+                          <div className="symbol-label">CT</div>
+                        )}
+                      </div>
+                      <div className="d-flex flex-column">
+                        <span className="text-gray-800 fw-bold fs-7">
+                          {tpl.name}
+                        </span>
+                        <span className="text-muted fs-9">
+                          ID: {tpl.id.substring(0, 8)}...
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                  {availableTemplates.length === 0 && (
+                    <div className="p-5 text-center text-muted">
+                      No templates found
+                    </div>
+                  )}
                 </div>
               )}
             </div>
