@@ -13,12 +13,14 @@ enum ActivityType {
   WEB_URL = "WEB_URL",
   YOUTUBE_LINK = "YOUTUBE_LINK",
   PAGE = "PAGE",
+  CERTIFICATE = "CERTIFICATE", // Added Certificate Type
 }
 
 // --- 2. CONFIGURATION ---
 const BASE_API_URL = "https://mypadminapi.bitmyanmar.info/api";
 const MINIO_UPLOAD_PUBLIC = `${BASE_API_URL}/files/upload-public-folder`;
-const MINIO_UPLOAD_H5P = `${BASE_API_URL}/files/upload-h5p`; // The new endpoint
+const MINIO_UPLOAD_H5P = `${BASE_API_URL}/files/upload-h5p`;
+const CERTIFICATE_TEMPLATES_URL = `${BASE_API_URL}/certificate-templates`; // Template API
 
 export const EditActivity = () => {
   const [searchParams] = useSearchParams();
@@ -43,7 +45,11 @@ export const EditActivity = () => {
 
   // Editor & Content States
   const [descriptionContent, setDescriptionContent] = useState("");
-  const [pageContent, setPageContent] = useState(""); // Stores URL (files), Path (H5P), or HTML (Page)
+  const [pageContent, setPageContent] = useState(""); // Stores URL, Path, HTML, or Template ID
+
+  // Certificate State
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Helper: Detect type based on API response data
   const determineTypeFromApi = (act: any): ActivityType => {
@@ -69,8 +75,22 @@ export const EditActivity = () => {
     return ActivityType.PAGE;
   };
 
-  // --- 3. Fetch Data ---
+  // --- 3. Fetch Data (Activity & Templates) ---
   useEffect(() => {
+    const fetchTemplates = async () => {
+      setLoadingTemplates(true);
+      try {
+        const res = await axios.get(CERTIFICATE_TEMPLATES_URL);
+        setTemplates(res.data);
+      } catch (err) {
+        console.error("Failed to fetch templates", err);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    fetchTemplates();
+
     if (!courseId || !activityId) return;
 
     const fetchData = async () => {
@@ -106,7 +126,10 @@ export const EditActivity = () => {
 
           const content = foundActivity.content || "";
 
-          if (mappedType === ActivityType.PAGE) {
+          if (
+            mappedType === ActivityType.PAGE ||
+            mappedType === ActivityType.CERTIFICATE
+          ) {
             setPageContent(content);
           } else if (
             mappedType === ActivityType.WEB_URL ||
@@ -114,7 +137,6 @@ export const EditActivity = () => {
           ) {
             setExternalUrl(content);
           } else {
-            // For PDF, Video, and H5P, the content is the file path/URL
             setPageContent(content);
           }
         } else {
@@ -142,7 +164,6 @@ export const EditActivity = () => {
     setError(null);
 
     try {
-      // === OPTION A: H5P UPLOAD (Private & Extracted) ===
       if (targetType === ActivityType.H5P) {
         if (!activityId) {
           throw new Error("Activity ID is missing. Cannot upload H5P.");
@@ -156,18 +177,11 @@ export const EditActivity = () => {
           headers: { "Content-Type": "multipart/form-data" },
         });
 
-        // Backend returns: { message: "...", data: { extractedBasePath: "...", ... } }
         const result = response.data.data;
-        console.log("H5P Upload Response:", result);
-        // FIX: The API returns 'extractedBasePath', not 'extractedFolder'.
-        // Save the extracted folder path to 'pageContent'
         setPageContent(result.playerUrl);
 
         alert("H5P Package uploaded and extracted successfully!");
-      }
-
-      // === OPTION B: STANDARD FILE UPLOAD (Public PDF/Video) ===
-      else {
+      } else {
         const folderName = `activity-${targetType
           .toLowerCase()
           .replace("_file", "s")}`;
@@ -197,7 +211,7 @@ export const EditActivity = () => {
           Array.isArray(apiMessage) ? apiMessage.join(", ") : apiMessage
         }`
       );
-      setPageContent(""); // Clear content on error
+      setPageContent("");
     } finally {
       setUploadingFile(false);
     }
@@ -216,11 +230,11 @@ export const EditActivity = () => {
 
     setSubmitting(true);
     try {
-      // Prepare Content based on Type
       let finalContent = "";
 
       switch (type) {
         case ActivityType.PAGE:
+        case ActivityType.CERTIFICATE: // For Certificate, pageContent holds the template ID
           finalContent = pageContent;
           break;
         case ActivityType.WEB_URL:
@@ -230,10 +244,8 @@ export const EditActivity = () => {
         case ActivityType.PDF_FILE:
         case ActivityType.VIDEO_FILE:
         case ActivityType.H5P:
-          // For files and H5P, pageContent holds the URL or Path
           finalContent = pageContent;
           if (!finalContent) {
-            // This check now works correctly for H5P after the fix in handleFileUpload
             alert("File/Content is missing. Please upload a file.");
             setSubmitting(false);
             return;
@@ -326,6 +338,7 @@ export const EditActivity = () => {
               <option value={ActivityType.H5P}>H5P Interactive Content</option>
               <option value={ActivityType.WEB_URL}>Web URL</option>
               <option value={ActivityType.YOUTUBE_LINK}>YouTube Link</option>
+              <option value={ActivityType.CERTIFICATE}>Certificate</option>
             </Form.Select>
           </Form.Group>
 
@@ -360,7 +373,7 @@ export const EditActivity = () => {
                       ? ".pdf"
                       : type === ActivityType.VIDEO_FILE
                       ? "video/*"
-                      : ".h5p" // Accept H5P extension
+                      : ".h5p"
                   }
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                     const file = e.target.files?.[0];
@@ -371,7 +384,6 @@ export const EditActivity = () => {
                   disabled={uploadingFile || submitting}
                 />
 
-                {/* Upload Status / Preview Link */}
                 {pageContent && !pageContent.startsWith("<") && (
                   <div className="mt-3">
                     <div className="text-primary fw-bold">
@@ -383,12 +395,10 @@ export const EditActivity = () => {
                   </div>
                 )}
 
-                {/* Specific Hint for H5P */}
                 {type === ActivityType.H5P && (
                   <Alert variant="info" className="mt-3 mb-0">
                     <small>
                       Uploading will extract the contents to a private folder.
-                      The path saved will be the extracted folder location.
                     </small>
                   </Alert>
                 )}
@@ -428,6 +438,35 @@ export const EditActivity = () => {
                 onChange={(e) => setExternalUrl(e.target.value)}
                 disabled={submitting || uploadingFile}
               />
+            </Form.Group>
+          )}
+
+          {/* 4. CERTIFICATE TEMPLATE SELECT BOX */}
+          {type === ActivityType.CERTIFICATE && (
+            <Form.Group className="mb-5">
+              <Form.Label className="required fw-bold fs-6">
+                Available Templates
+                {loadingTemplates && (
+                  <Spinner animation="border" size="sm" className="ms-2" />
+                )}
+              </Form.Label>
+              <Form.Select
+                value={pageContent}
+                onChange={(e) => setPageContent(e.target.value)}
+                disabled={submitting || loadingTemplates}
+              >
+                <option value="">-- Select Template --</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} ({template.id})
+                  </option>
+                ))}
+              </Form.Select>
+              {pageContent && (
+                <div className="mt-2 text-muted fs-7">
+                  Selected Template ID: <strong>{pageContent}</strong>
+                </div>
+              )}
             </Form.Group>
           )}
 
