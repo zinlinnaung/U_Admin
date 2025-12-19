@@ -13,7 +13,8 @@ enum ActivityType {
   WEB_URL = "WEB_URL",
   YOUTUBE_LINK = "YOUTUBE_LINK",
   PAGE = "PAGE",
-  CERTIFICATE = "CERTIFICATE", // Added Certificate Type
+  CERTIFICATE = "CERTIFICATE",
+  FEEDBACK = "FEEDBACK", // Added Feedback Type
 }
 
 // --- 2. CONFIGURATION ---
@@ -21,6 +22,7 @@ const BASE_API_URL = "https://mypadminapi.bitmyanmar.info/api";
 const MINIO_UPLOAD_PUBLIC = `${BASE_API_URL}/files/upload-public-folder`;
 const MINIO_UPLOAD_H5P = `${BASE_API_URL}/files/upload-h5p`;
 const CERTIFICATE_TEMPLATES_URL = `${BASE_API_URL}/certificate-templates`; // Template API
+const FEEDBACK_TEMPLATES_URL = `${BASE_API_URL}/feedback-templates`; // Feedback API
 
 export const EditActivity = () => {
   const [searchParams] = useSearchParams();
@@ -47,8 +49,9 @@ export const EditActivity = () => {
   const [descriptionContent, setDescriptionContent] = useState("");
   const [pageContent, setPageContent] = useState(""); // Stores URL, Path, HTML, or Template ID
 
-  // Certificate State
+  // Template States
   const [templates, setTemplates] = useState<any[]>([]);
+  const [feedbackTemplates, setFeedbackTemplates] = useState<any[]>([]); // Added for Feedback
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Helper: Detect type based on API response data
@@ -80,8 +83,13 @@ export const EditActivity = () => {
     const fetchTemplates = async () => {
       setLoadingTemplates(true);
       try {
-        const res = await axios.get(CERTIFICATE_TEMPLATES_URL);
-        setTemplates(res.data);
+        // Fetch both Certificate and Feedback templates
+        const [certRes, feedbackRes] = await Promise.all([
+          axios.get(CERTIFICATE_TEMPLATES_URL),
+          axios.get(FEEDBACK_TEMPLATES_URL),
+        ]);
+        setTemplates(certRes.data);
+        setFeedbackTemplates(feedbackRes.data);
       } catch (err) {
         console.error("Failed to fetch templates", err);
       } finally {
@@ -128,7 +136,8 @@ export const EditActivity = () => {
 
           if (
             mappedType === ActivityType.PAGE ||
-            mappedType === ActivityType.CERTIFICATE
+            mappedType === ActivityType.CERTIFICATE ||
+            mappedType === ActivityType.FEEDBACK
           ) {
             setPageContent(content);
           } else if (
@@ -234,7 +243,8 @@ export const EditActivity = () => {
 
       switch (type) {
         case ActivityType.PAGE:
-        case ActivityType.CERTIFICATE: // For Certificate, pageContent holds the template ID
+        case ActivityType.CERTIFICATE:
+        case ActivityType.FEEDBACK: // Handles saving Feedback template ID
           finalContent = pageContent;
           break;
         case ActivityType.WEB_URL:
@@ -339,6 +349,7 @@ export const EditActivity = () => {
               <option value={ActivityType.WEB_URL}>Web URL</option>
               <option value={ActivityType.YOUTUBE_LINK}>YouTube Link</option>
               <option value={ActivityType.CERTIFICATE}>Certificate</option>
+              <option value={ActivityType.FEEDBACK}>Feedback</option>
             </Form.Select>
           </Form.Group>
 
@@ -465,6 +476,35 @@ export const EditActivity = () => {
               {pageContent && (
                 <div className="mt-2 text-muted fs-7">
                   Selected Template ID: <strong>{pageContent}</strong>
+                </div>
+              )}
+            </Form.Group>
+          )}
+
+          {/* 5. FEEDBACK TEMPLATE SELECT BOX */}
+          {type === ActivityType.FEEDBACK && (
+            <Form.Group className="mb-5">
+              <Form.Label className="required fw-bold fs-6">
+                Available Feedback Forms
+                {loadingTemplates && (
+                  <Spinner animation="border" size="sm" className="ms-2" />
+                )}
+              </Form.Label>
+              <Form.Select
+                value={pageContent}
+                onChange={(e) => setPageContent(e.target.value)}
+                disabled={submitting || loadingTemplates}
+              >
+                <option value="">-- Select Feedback Template --</option>
+                {feedbackTemplates.map((ft) => (
+                  <option key={ft.id} value={ft.id}>
+                    {ft.name}
+                  </option>
+                ))}
+              </Form.Select>
+              {pageContent && (
+                <div className="mt-2 text-muted fs-7">
+                  Selected Feedback ID: <strong>{pageContent}</strong>
                 </div>
               )}
             </Form.Group>

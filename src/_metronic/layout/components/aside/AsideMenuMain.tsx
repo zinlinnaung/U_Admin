@@ -55,6 +55,12 @@ export function AsideMenuMain() {
           hasBullet={true}
           bsTitle="template management"
         />
+        <AsideMenuItem
+          to="/apps/feedback"
+          title="Feedback Template"
+          hasBullet={true}
+          bsTitle="feedback management"
+        />
       </AsideMenuItemWithSubMain>
 
       <AsideMenuItemWithSubMain

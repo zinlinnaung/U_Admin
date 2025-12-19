@@ -19,6 +19,7 @@ import CertificateEditor from "../modules/apps/certificate/CertificateEditor";
 import CertificateEditor2 from "../modules/apps/certificate/CertificateEditor2";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import FeedbackTemplate from "../modules/apps/courses/FeedbackTemplate";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -115,6 +116,14 @@ const PrivateRoutes = () => {
               <DndProvider backend={HTML5Backend}>
                 <CertificateEditor2 />
               </DndProvider>
+            </SuspensedView>
+          }
+        />
+        <Route
+          path="apps/feedback"
+          element={
+            <SuspensedView>
+              <FeedbackTemplate />
             </SuspensedView>
           }
         />
