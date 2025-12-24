@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { KTIcon } from "../../../../_metronic/helpers";
 
 // --- Types ---
 interface Question {
@@ -12,18 +14,22 @@ interface Question {
 interface FeedbackTemplate {
   id: string;
   name: string;
-  content: Question[]; // Changed from 'questions' to 'content' to match backend
+  content: Question[];
   created_at: string;
 }
 
-const API_URL = "https://mypadminapi.bitmyanmar.info/api/feedback-templates"; // Update with your actual URL
+const API_URL = "https://mypadminapi.bitmyanmar.info/api/feedback-templates";
 
 const FeedbackSystem: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"create" | "preview">("create");
-  const [templates, setTemplates] = useState<FeedbackTemplate[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const editId = searchParams.get("id");
 
-  // Draft States
+  const [activeTab, setActiveTab] = useState<"create" | "preview">("create");
+  const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // States
   const [draftQuestions, setDraftQuestions] = useState<Question[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [form, setForm] = useState<Question>({
@@ -33,24 +39,26 @@ const FeedbackSystem: React.FC = () => {
     options: ["Option 1"],
   });
 
-  // --- API: Fetch All Templates ---
-  const fetchTemplates = async () => {
+  // Load Template if ID exists
+  useEffect(() => {
+    if (editId) {
+      loadTemplate(editId);
+    }
+  }, [editId]);
+
+  const loadTemplate = async (id: string) => {
     setLoading(true);
     try {
-      const response = await axios.get(API_URL);
-      setTemplates(response.data);
+      const response = await axios.get(`${API_URL}/${id}`);
+      setTemplateName(response.data.name);
+      setDraftQuestions(response.data.content || []);
     } catch (error) {
-      console.error("Error fetching templates:", error);
+      console.error("Load error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  // --- Handlers ---
   const addOption = () =>
     setForm({
       ...form,
@@ -71,67 +79,71 @@ const FeedbackSystem: React.FC = () => {
     });
   };
 
-  // --- API: Save Template ---
   const finalizeTemplate = async () => {
     if (!templateName) return alert("Please name this template");
     if (draftQuestions.length === 0) return alert("Add questions first");
 
+    setIsSaving(true);
     const payload = {
       name: templateName,
       description: "Feedback Template",
-      content: draftQuestions, // Array of questions
+      content: draftQuestions,
     };
 
     try {
-      await axios.post(API_URL, payload);
-      alert("Template saved to database!");
-      setDraftQuestions([]);
-      setTemplateName("");
-      fetchTemplates(); // Refresh list
+      if (editId) {
+        await axios.patch(`${API_URL}/${editId}`, payload);
+        alert("Template updated successfully!");
+      } else {
+        await axios.post(API_URL, payload);
+        alert("New template saved!");
+      }
+      navigate(-1); // Back to list
     } catch (error) {
-      console.error("Error saving template:", error);
-      alert("Failed to save template.");
+      alert("Error saving template.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // --- API: Delete Template ---
-  const deleteTemplate = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this?")) return;
-    try {
-      await axios.delete(`${API_URL}/${id}`);
-      fetchTemplates();
-    } catch (error) {
-      console.error("Error deleting:", error);
-    }
-  };
+  if (loading)
+    return <div className="p-10 text-center fs-4">Loading Template...</div>;
 
   return (
-    <div className="card card-custom shadow-sm">
-      <div className="card-header card-header-stretch border-bottom">
-        <div className="card-title">
-          <h3 className="fw-bolder text-dark">Feedback Management</h3>
+    <div className="card shadow-sm">
+      <div className="card-header border-bottom">
+        <div className="card-title d-flex align-items-center">
+          <button
+            onClick={() => navigate(-1)}
+            className="btn btn-sm btn-icon btn-light me-4"
+          >
+            <KTIcon iconName="arrow-left" className="fs-2" />
+          </button>
+          <h3 className="fw-bolder m-0">
+            {editId ? `Edit: ${templateName}` : "Create New Feedback"}
+          </h3>
         </div>
         <div className="card-toolbar">
           <ul className="nav nav-tabs nav-line-tabs nav-stretch fs-6 border-0">
             <li className="nav-item">
-              <a
-                className={`nav-link cursor-pointer ${
+              <button
+                className={`nav-link border-0 ${
                   activeTab === "create" ? "active" : ""
                 }`}
                 onClick={() => setActiveTab("create")}
               >
-                Create & Library
-              </a>
+                Builder
+              </button>
             </li>
             <li className="nav-item">
-              <a
-                className={`nav-link cursor-pointer ${
+              <button
+                className={`nav-link border-0 ${
                   activeTab === "preview" ? "active" : ""
                 }`}
                 onClick={() => setActiveTab("preview")}
               >
-                Form Preview
-              </a>
+                Preview
+              </button>
             </li>
           </ul>
         </div>
@@ -140,36 +152,31 @@ const FeedbackSystem: React.FC = () => {
       <div className="card-body bg-light-soft">
         {activeTab === "create" ? (
           <div className="row">
-            {/* LEFT SIDE: BUILDER */}
             <div className="col-lg-7">
-              <div className="card shadow-none border bg-white p-8">
-                <h4 className="fw-bolder mb-6 text-primary">
-                  Step 1: Build Template
-                </h4>
+              <div className="card shadow-none border bg-white p-8 mb-5">
                 <div className="mb-7">
-                  <label className="form-label fw-bold">Template Name</label>
+                  <label className="form-label fw-bold fs-6">
+                    Template Name
+                  </label>
                   <input
-                    className="form-control form-control-solid border-primary"
-                    placeholder="Template Title"
+                    className="form-control form-control-solid"
                     value={templateName}
                     onChange={(e) => setTemplateName(e.target.value)}
                   />
                 </div>
 
-                <div className="bg-light rounded p-5 mb-5 border border-dashed">
-                  <label className="form-label fw-bold text-dark">
-                    New Question
-                  </label>
+                <div className="bg-light rounded p-6 mb-8 border border-dashed border-primary">
+                  <h5 className="mb-4">Add New Question</h5>
                   <input
-                    className="form-control mb-3"
-                    placeholder="Question text..."
+                    className="form-control mb-4"
+                    placeholder="Question Text"
                     value={form.question}
                     onChange={(e) =>
                       setForm({ ...form, question: e.target.value })
                     }
                   />
                   <select
-                    className="form-select mb-3"
+                    className="form-select mb-4"
                     value={form.type}
                     onChange={(e) =>
                       setForm({ ...form, type: e.target.value as any })
@@ -177,14 +184,15 @@ const FeedbackSystem: React.FC = () => {
                   >
                     <option value="radio">Single Choice</option>
                     <option value="checkbox">Multiple Choice</option>
-                    <option value="text">Text Box</option>
+                    <option value="text">Text Area</option>
                   </select>
+
                   {form.type !== "text" && (
-                    <div className="mb-3">
+                    <div className="mb-4 ps-4 border-start border-3">
                       {form.options.map((opt, i) => (
                         <div key={i} className="d-flex mb-2">
                           <input
-                            className="form-control form-control-sm me-2"
+                            className="form-control form-control-sm"
                             value={opt}
                             onChange={(e) => {
                               const n = [...form.options];
@@ -195,7 +203,7 @@ const FeedbackSystem: React.FC = () => {
                         </div>
                       ))}
                       <button
-                        className="btn btn-sm btn-link"
+                        className="btn btn-link btn-sm p-0"
                         onClick={addOption}
                       >
                         + Add Option
@@ -203,133 +211,107 @@ const FeedbackSystem: React.FC = () => {
                     </div>
                   )}
                   <button
-                    className="btn btn-sm btn-dark w-100 fw-bold"
+                    className="btn btn-dark w-100"
                     onClick={addQuestionToDraft}
                   >
-                    Add Question to List
+                    Add Question
                   </button>
                 </div>
 
-                <div className="separator my-5"></div>
+                <div className="separator mb-6"></div>
                 <h5 className="mb-4">
-                  Draft ({draftQuestions.length} Questions)
+                  Question List ({draftQuestions.length})
                 </h5>
                 {draftQuestions.map((q, idx) => (
                   <div
                     key={q.id}
-                    className="d-flex align-items-center mb-3 bg-white border p-3 rounded"
+                    className="d-flex align-items-center mb-3 p-4 bg-light rounded border"
                   >
-                    <span className="badge badge-light-primary me-3">
+                    <span className="badge badge-circle badge-primary me-4">
                       {idx + 1}
                     </span>
-                    <div className="flex-grow-1 fw-bold text-gray-700">
-                      {q.question}
+                    <div className="flex-grow-1 fw-bold">
+                      {q.question}{" "}
+                      <span className="text-muted fs-8">({q.type})</span>
                     </div>
                     <button
-                      className="btn btn-sm btn-icon btn-light-danger"
+                      className="btn btn-icon btn-sm btn-light-danger"
                       onClick={() =>
                         setDraftQuestions(
                           draftQuestions.filter((x) => x.id !== q.id)
                         )
                       }
                     >
-                      <i className="bi bi-x"></i>
+                      <KTIcon iconName="trash" className="fs-3" />
                     </button>
                   </div>
                 ))}
+
                 <button
-                  className="btn btn-primary w-100 mt-5 fw-bolder"
+                  className="btn btn-primary w-100 mt-8 fs-5 fw-bolder"
                   onClick={finalizeTemplate}
-                  disabled={draftQuestions.length === 0}
+                  disabled={isSaving}
                 >
-                  Save Template to Database
+                  {isSaving
+                    ? "Saving..."
+                    : editId
+                    ? "Update Template"
+                    : "Save Template"}
                 </button>
               </div>
             </div>
 
-            {/* RIGHT SIDE: LIBRARY */}
             <div className="col-lg-5">
-              <div className="ps-lg-5">
-                <h4 className="fw-bolder mb-6">Available Templates</h4>
-                {loading ? (
-                  <p>Loading...</p>
-                ) : templates.length === 0 ? (
-                  <p className="text-muted">No templates found.</p>
-                ) : (
-                  templates.map((tpl) => (
-                    <div
-                      key={tpl.id}
-                      className="card border-0 shadow-sm mb-5 bg-white"
-                    >
-                      <div className="card-body p-5">
-                        <div className="d-flex align-items-center justify-content-between mb-2">
-                          <span className="fs-5 fw-bolder text-gray-800">
-                            {tpl.name}
-                          </span>
-                          <span className="badge badge-light-success">
-                            {tpl.content?.length || 0} Qs
-                          </span>
-                        </div>
-                        <div className="text-muted fs-7 mb-4">
-                          Created:{" "}
-                          {new Date(tpl.created_at).toLocaleDateString()}
-                        </div>
-                        <div className="d-flex gap-2">
-                          <button
-                            className="btn btn-sm btn-light-primary flex-grow-1 fw-bold"
-                            onClick={() => setActiveTab("preview")}
-                          >
-                            View Preview
-                          </button>
-                          <button
-                            className="btn btn-sm btn-icon btn-light-danger"
-                            onClick={() => deleteTemplate(tpl.id)}
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+              <div className="alert alert-dismissible bg-light-primary d-flex flex-column flex-sm-row p-5 mb-10">
+                <KTIcon
+                  iconName="information-5"
+                  className="fs-2hx text-primary me-4 mb-5 mb-sm-0"
+                />
+                <div className="d-flex flex-column pe-0 pe-sm-10">
+                  <h4 className="fw-semibold">Builder Instructions</h4>
+                  <span>
+                    Use the form on the left to add questions. Your changes are
+                    stored as a draft until you click "Save Template".
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          /* PREVIEW TAB */
-          <div className="max-w-600px mx-auto bg-white p-10 rounded border shadow-sm mt-5">
-            <h2 className="fw-bolder mb-8 text-center">
-              Live Preview (Latest)
+          <div className="mw-700px mx-auto bg-white p-10 rounded shadow-sm border mt-5">
+            <h2 className="text-center mb-10 fw-bolder">
+              {templateName || "Form Preview"}
             </h2>
-            {templates.length === 0 ? (
-              <p className="text-center">No template available.</p>
-            ) : (
-              templates[0].content.map((q, i) => (
-                <div key={q.id} className="mb-8">
-                  <label className="form-label fw-bolder fs-5 text-dark">
-                    {i + 1}. {q.question}
-                  </label>
-                  {q.type === "text" ? (
-                    <textarea
-                      className="form-control form-control-solid"
-                      rows={2}
-                    />
-                  ) : (
-                    q.options.map((o, idx) => (
-                      <div
-                        key={idx}
-                        className="form-check form-check-custom form-check-solid mb-3"
-                      >
-                        <input className="form-check-input" type={q.type} />
-                        <label className="form-check-label fw-bold text-gray-600">
-                          {o}
-                        </label>
-                      </div>
-                    ))
-                  )}
-                </div>
-              ))
-            )}
+            {draftQuestions.map((q, i) => (
+              <div key={q.id} className="mb-10">
+                <label className="form-label fw-bolder fs-5 mb-4">
+                  {i + 1}. {q.question}
+                </label>
+                {q.type === "text" ? (
+                  <textarea
+                    className="form-control form-control-solid"
+                    rows={3}
+                    placeholder="User response area..."
+                  />
+                ) : (
+                  q.options.map((o, idx) => (
+                    <div
+                      key={idx}
+                      className="form-check form-check-custom form-check-solid mb-4"
+                    >
+                      <input
+                        className="form-check-input"
+                        type={q.type === "radio" ? "radio" : "checkbox"}
+                        name={`preview-${q.id}`}
+                      />
+                      <label className="form-check-label fw-bold text-gray-700">
+                        {o}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

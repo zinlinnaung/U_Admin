@@ -50,13 +50,13 @@ export function AsideMenuMain() {
           bsTitle="Course management"
         />
         <AsideMenuItem
-          to="/apps/certificate"
+          to="/apps/certificate/list"
           title="Certificate Template"
           hasBullet={true}
           bsTitle="template management"
         />
         <AsideMenuItem
-          to="/apps/feedback"
+          to="/apps/feedback/list"
           title="Feedback Template"
           hasBullet={true}
           bsTitle="feedback management"

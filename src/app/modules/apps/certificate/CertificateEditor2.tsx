@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom"; // Added useNavigate
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import html2canvas from "html2canvas";
@@ -19,7 +20,6 @@ interface ComponentData {
   value: string;
 }
 
-// Type for the data coming FROM the API
 interface ApiTemplate {
   id: string;
   name: string;
@@ -56,7 +56,7 @@ const DraggableComponent: React.FC<{
   return (
     <div
       ref={drag as any}
-      className={`card card-custom shadow-sm mb-4 cursor-move ${
+      className={`card card-custom shadow-sm mb-4 cursor-move border border-hover-primary ${
         isDragging ? "opacity-50" : ""
       }`}
     >
@@ -66,7 +66,7 @@ const DraggableComponent: React.FC<{
             <KTIcon iconName={icon} className="fs-2 text-primary" />
           </span>
         </div>
-        <div className="fw-bold text-gray-800">{label}</div>
+        <div className="fw-bold text-gray-800 fs-7">{label}</div>
       </div>
     </div>
   );
@@ -105,10 +105,11 @@ const PlacedComponent: React.FC<{
         fontWeight: "bold",
         border: selected ? "2px dashed #009ef7" : "2px dashed transparent",
         padding: "4px",
-        opacity: isDragging ? 0 : 1,
+        opacity: isDragging ? 0.5 : 1,
         userSelect: "none",
         whiteSpace: "nowrap",
         zIndex: 10,
+        backgroundColor: selected ? "rgba(0, 158, 247, 0.05)" : "transparent",
       }}
     >
       {component.value}
@@ -124,9 +125,10 @@ const PlacedComponent: React.FC<{
             right: "-12px",
             height: "20px",
             width: "20px",
+            borderRadius: "50%",
           }}
         >
-          <KTIcon iconName="cross" className="fs-6" />
+          <KTIcon iconName="cross" className="fs-6 text-white" />
         </button>
       )}
     </div>
@@ -135,6 +137,10 @@ const PlacedComponent: React.FC<{
 
 // --- Main Editor ---
 const CertificateEditor: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const certIdFromQuery = searchParams.get("id");
+
   const [templateName, setTemplateName] = useState("Certificate Template");
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [components, setComponents] = useState<ComponentData[]>([]);
@@ -142,13 +148,9 @@ const CertificateEditor: React.FC = () => {
     null
   );
 
-  // Lists and Loading States
-  const [availableTemplates, setAvailableTemplates] = useState<ApiTemplate[]>(
-    []
-  );
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -156,20 +158,72 @@ const CertificateEditor: React.FC = () => {
   const API_URL =
     "https://mypadminapi.bitmyanmar.info/api/certificate-templates";
 
-  // --- Fetch Templates on Mount ---
+  // --- 1. Load Data if editing existing ---
   useEffect(() => {
-    fetchTemplates();
-  }, []);
+    if (certIdFromQuery) {
+      fetchSingleTemplate(certIdFromQuery);
+    }
+  }, [certIdFromQuery]);
 
-  const fetchTemplates = async () => {
-    setIsLoadingList(true);
+  const fetchSingleTemplate = async (id: string) => {
+    setIsLoading(true);
     try {
-      const response = await axios.get(API_URL);
-      setAvailableTemplates(response.data);
+      const response = await axios.get(`${API_URL}/${id}`);
+      const template: ApiTemplate = response.data;
+
+      setTemplateName(template.name);
+      setBackgroundImage(template.backgroundImage);
+
+      const loadedComponents: ComponentData[] = template.components.data.map(
+        (c) => ({
+          id: c.id,
+          type: c.type,
+          position: c.position,
+          value: c.type === "name" ? "Student Name" : "24/12/2025",
+        })
+      );
+      setComponents(loadedComponents);
     } catch (error) {
-      console.error("Failed to fetch templates", error);
+      console.error("Failed to load template:", error);
     } finally {
-      setIsLoadingList(false);
+      setIsLoading(false);
+    }
+  };
+
+  // --- 2. Save Logic (Update via PATCH or Create via POST) ---
+  const handleSave = async () => {
+    if (!backgroundImage) return alert("Please upload a background image.");
+    setIsSaving(true);
+
+    const payload = {
+      name: templateName,
+      backgroundImage: backgroundImage,
+      components: {
+        data: components.map((c) => ({
+          id: c.id,
+          type: c.type,
+          position: c.position,
+          variableKey: c.type === "name" ? "{{student_name}}" : "{{date}}",
+        })),
+      },
+    };
+
+    try {
+      if (certIdFromQuery) {
+        // UPDATE (PATCH)
+        await axios.patch(`${API_URL}/${certIdFromQuery}`, payload);
+        alert("Template updated successfully!");
+      } else {
+        // CREATE (POST)
+        const createPayload = { ...payload, id: `cert-${Date.now()}` };
+        await axios.post(API_URL, createPayload);
+        alert("Template saved successfully!");
+      }
+      navigate(-1); // Go back to list after success
+    } catch (error) {
+      alert("Failed to save template.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -204,66 +258,13 @@ const CertificateEditor: React.FC = () => {
           id: `${item.type}-${Date.now()}`,
           type: item.type,
           position: { x: x - 40, y: y - 15 },
-          value: item.type === "name" ? "John Doe" : "12/12/2025",
+          value: item.type === "name" ? "Student Name" : "24/12/2025",
         };
         setComponents((prev) => [...prev, newComp]);
         setSelectedComponentId(newComp.id);
       }
     },
   }));
-
-  const deleteComponent = (id: string) => {
-    setComponents((prev) => prev.filter((c) => c.id !== id));
-    setSelectedComponentId(null);
-  };
-
-  // --- Load Template into Editor ---
-  const loadTemplate = (template: ApiTemplate) => {
-    setTemplateName(template.name);
-    setBackgroundImage(template.backgroundImage);
-
-    // Map backend JSON data back to local state array
-    const loadedComponents: ComponentData[] = template.components.data.map(
-      (comp) => ({
-        id: comp.id,
-        type: comp.type,
-        position: comp.position,
-        value: comp.type === "name" ? "John Doe" : "12/12/2025", // Default preview values
-      })
-    );
-
-    setComponents(loadedComponents);
-    setSelectedComponentId(null);
-  };
-
-  const handleSave = async () => {
-    if (!backgroundImage) return alert("Please upload a background image.");
-
-    setIsSaving(true);
-    const payload = {
-      id: `cert-${Date.now()}`,
-      name: templateName,
-      backgroundImage: backgroundImage,
-      components: {
-        data: components.map((c) => ({
-          id: c.id,
-          type: c.type,
-          position: c.position,
-          variableKey: c.type === "name" ? "{{student_name}}" : "{{date}}",
-        })),
-      },
-    };
-
-    try {
-      await axios.post(API_URL, payload);
-      alert("Template saved successfully!");
-      fetchTemplates(); // Refresh the list
-    } catch (error: any) {
-      alert("Failed to save template.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const generatePDF = async () => {
     if (!canvasRef.current) return;
@@ -292,12 +293,54 @@ const CertificateEditor: React.FC = () => {
     }, 100);
   };
 
+  if (isLoading)
+    return (
+      <div className="p-10 text-center fs-4 fw-bold">Loading Template...</div>
+    );
+
   return (
     <DndProvider backend={HTML5Backend}>
+      {/* Header Actions */}
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-5">
+        <div className="d-flex align-items-center">
+          <button
+            onClick={() => navigate(-1)}
+            className="btn btn-sm btn-icon btn-light-primary me-3"
+          >
+            <KTIcon iconName="arrow-left" className="fs-2" />
+          </button>
+          <h1 className="text-dark fw-bold my-1 fs-3">
+            {certIdFromQuery ? "Edit Template" : "Create New Template"}
+          </h1>
+        </div>
+        <div className="d-flex gap-3">
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            <KTIcon iconName="check" className="fs-3 me-1" />
+            {isSaving
+              ? "Saving..."
+              : certIdFromQuery
+              ? "Update Changes"
+              : "Save Template"}
+          </button>
+          <button
+            className="btn btn-sm btn-success"
+            onClick={generatePDF}
+            disabled={isGenerating}
+          >
+            <KTIcon iconName="file-up" className="fs-3 me-1" />
+            {isGenerating ? "Processing..." : "Export PDF Preview"}
+          </button>
+        </div>
+      </div>
+
       <div className="d-flex flex-column flex-lg-row">
         {/* LEFT PANEL */}
         <div className="w-lg-300px me-lg-5 mb-5">
-          <div className="card mb-5">
+          <div className="card shadow-sm mb-5">
             <div className="card-body p-5">
               <label className="form-label fw-bold">Template Name</label>
               <input
@@ -306,7 +349,7 @@ const CertificateEditor: React.FC = () => {
                 onChange={(e) => setTemplateName(e.target.value)}
               />
               <button
-                className="btn btn-outline btn-outline-dashed btn-outline-primary w-100 mb-3"
+                className="btn btn-outline btn-outline-dashed btn-outline-primary w-100"
                 onClick={() => fileInputRef.current?.click()}
               >
                 Upload Background
@@ -321,15 +364,19 @@ const CertificateEditor: React.FC = () => {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card shadow-sm">
             <div className="card-header min-h-auto py-3">
-              <h3 className="card-title fs-6">Drag Fields</h3>
+              <h3 className="card-title fs-6">Drag and Drop Fields</h3>
             </div>
             <div className="card-body p-5">
-              <DraggableComponent type="name" label="Name Field" icon="user" />
+              <DraggableComponent
+                type="name"
+                label="Student Name"
+                icon="user"
+              />
               <DraggableComponent
                 type="date"
-                label="Date Field"
+                label="Issue Date"
                 icon="calendar"
               />
             </div>
@@ -337,80 +384,65 @@ const CertificateEditor: React.FC = () => {
         </div>
 
         {/* MIDDLE PANEL (Canvas) */}
-        <div className="flex-lg-row-fluid me-lg-5 mb-5">
-          <div className="card shadow-sm">
-            <div className="card-header">
-              <div className="card-title fs-4 fw-bold">Canvas</div>
-              <div className="card-toolbar gap-2">
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                >
-                  {isSaving ? "Saving..." : "Save Template"}
-                </button>
-                <button
-                  className="btn btn-sm btn-success"
-                  onClick={generatePDF}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? "Wait..." : "PDF Preview"}
-                </button>
-              </div>
-            </div>
+        <div className="flex-lg-row-fluid mb-5">
+          <div
+            className="card shadow-sm bg-light-dark p-10 d-flex justify-content-center overflow-auto"
+            style={{ minHeight: "650px" }}
+          >
             <div
-              className="card-body bg-light p-5 d-flex justify-content-center overflow-auto"
-              style={{ minHeight: "650px" }}
+              ref={(el) => {
+                (canvasRef as any).current = el;
+                drop(el);
+              }}
+              className="position-relative bg-white shadow-lg"
+              style={{
+                width: "800px",
+                height: "565px",
+                backgroundImage: backgroundImage
+                  ? `url(${backgroundImage})`
+                  : "none",
+                backgroundSize: "contain",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+              onClick={() => setSelectedComponentId(null)}
             >
-              <div
-                ref={(el) => {
-                  canvasRef.current = el;
-                  drop(el);
-                }}
-                className="position-relative bg-white shadow-sm"
-                style={{
-                  width: "800px",
-                  height: "565px",
-                  backgroundImage: backgroundImage
-                    ? `url(${backgroundImage})`
-                    : "none",
-                  backgroundSize: "contain",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
-                }}
-                onClick={() => setSelectedComponentId(null)}
-              >
-                {!backgroundImage && (
-                  <div className="h-100 d-flex align-items-center justify-content-center text-gray-400">
-                    Upload a background to start
+              {!backgroundImage && (
+                <div className="h-100 d-flex align-items-center justify-content-center text-gray-500">
+                  <div className="text-center">
+                    <KTIcon iconName="picture" className="fs-3x mb-3" />
+                    <p>Upload a background image to begin designing</p>
                   </div>
-                )}
-                {components.map((c) => (
-                  <PlacedComponent
-                    key={c.id}
-                    component={c}
-                    selected={c.id === selectedComponentId}
-                    onSelect={setSelectedComponentId}
-                    onDelete={deleteComponent}
-                  />
-                ))}
-              </div>
+                </div>
+              )}
+              {components.map((c) => (
+                <PlacedComponent
+                  key={c.id}
+                  component={c}
+                  selected={c.id === selectedComponentId}
+                  onSelect={setSelectedComponentId}
+                  onDelete={(id) =>
+                    setComponents((prev) =>
+                      prev.filter((item) => item.id !== id)
+                    )
+                  }
+                />
+              ))}
             </div>
           </div>
         </div>
 
         {/* RIGHT PANEL */}
         <div className="w-lg-300px">
-          {/* Properties Card */}
-          <div className="card mb-5">
+          <div className="card shadow-sm">
             <div className="card-header bg-primary py-3 min-h-auto">
               <h3 className="card-title fs-6 text-white">Properties</h3>
             </div>
             <div className="card-body p-5">
               {selectedComponentId ? (
                 <div>
-                  <label className="form-label fw-bold fs-8 text-muted">
-                    PREVIEW TEXT
+                  <label className="form-label fw-bold fs-8 text-muted uppercase">
+                    Edit Preview Text
                   </label>
                   <input
                     className="form-control form-control-sm mb-4"
@@ -430,62 +462,22 @@ const CertificateEditor: React.FC = () => {
                   />
                   <button
                     className="btn btn-sm btn-light-danger w-100"
-                    onClick={() => deleteComponent(selectedComponentId)}
+                    onClick={() => {
+                      setComponents((prev) =>
+                        prev.filter((c) => c.id !== selectedComponentId)
+                      );
+                      setSelectedComponentId(null);
+                    }}
                   >
-                    Delete Field
+                    Remove Field
                   </button>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-5">
-                  Select a field
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Templates List Card */}
-          <div className="card">
-            <div className="card-header bg-success py-3 min-h-auto">
-              <h3 className="card-title fs-6 text-white">
-                Available Templates
-              </h3>
-            </div>
-            <div
-              className="card-body p-0 scroll-y"
-              style={{ maxHeight: "400px" }}
-            >
-              {isLoadingList ? (
-                <div className="p-5 text-center">Loading...</div>
-              ) : (
-                <div className="list-group list-group-flush">
-                  {availableTemplates.map((tpl) => (
-                    <button
-                      key={tpl.id}
-                      className="list-group-item list-group-item-action p-4 d-flex align-items-center"
-                      onClick={() => loadTemplate(tpl)}
-                    >
-                      <div className="symbol symbol-40px me-3">
-                        {tpl.backgroundImage ? (
-                          <img src={tpl.backgroundImage} alt="tpl" />
-                        ) : (
-                          <div className="symbol-label">CT</div>
-                        )}
-                      </div>
-                      <div className="d-flex flex-column">
-                        <span className="text-gray-800 fw-bold fs-7">
-                          {tpl.name}
-                        </span>
-                        <span className="text-muted fs-9">
-                          ID: {tpl.id.substring(0, 8)}...
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                  {availableTemplates.length === 0 && (
-                    <div className="p-5 text-center text-muted">
-                      No templates found
-                    </div>
-                  )}
+                <div className="text-center text-gray-500 py-10">
+                  <KTIcon iconName="mouse-pointer" className="fs-2x mb-3" />
+                  <p className="fs-7">
+                    Select an element on the canvas to edit its properties
+                  </p>
                 </div>
               )}
             </div>
