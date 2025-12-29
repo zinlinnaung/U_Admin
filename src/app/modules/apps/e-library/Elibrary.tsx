@@ -1,13 +1,10 @@
-// FULL E-LIBRARY PAGE INTEGRATED WITH API
-// FINAL VERSION — READY FOR USE
-
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
-import { Modal } from "react-bootstrap";
+import { Modal, Spinner } from "react-bootstrap";
 import { Editor } from "react-draft-wysiwyg";
-import { EditorState, convertToRaw } from "draft-js";
+import { EditorState, convertToRaw, convertFromRaw } from "draft-js";
 
-import { KTCard, KTCardBody } from "../../../../_metronic/helpers";
+import { KTCard, KTCardBody, KTIcon } from "../../../../_metronic/helpers";
 import {
   useReactTable,
   getCoreRowModel,
@@ -17,214 +14,241 @@ import {
 
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 
-const API = "https://mypadminapi.bitmyanmar.info/api/content";
+const CONTENT_API = "https://mypadminapi.bitmyanmar.info/api/content";
+const TYPE_API = "https://mypadminapi.bitmyanmar.info/api/content-types";
+const CATEGORY_API = "https://mypadminapi.bitmyanmar.info/api/categories";
 
-/* -------------------------------------------------------
-   🔗 TEMPORARY MAPPING — UPDATE ACCORDING TO YOUR BACKEND
--------------------------------------------------------- */
-const TYPE_MAP: Record<string, string> = {
-  "Article - Image": "1",
-  "Article - Text": "2",
-  "E-Book": "3",
-  Podcast: "4",
-  Video: "5",
-  "Youth-Voice": "6",
-};
-
-const CATEGORY_MAP: Record<string, string> = {
-  "Career Development": "1",
-  "Digital Literacy": "2",
-  Entrepreneurship: "3",
-  "Financial Literacy": "4",
-  "Health & Wellbeing": "5",
-  Language: "6",
-  "Non-Formal Education": "7",
-  "Personal Development": "8",
-  "Vocational & Livelihood": "9",
-};
+const TEXT_TYPES = ["E-Books", "Articles", "Podcast"];
+const FILE_TYPES = ["Video", "Youth-Voice"];
 
 export default function ElibraryPage() {
   const [items, setItems] = useState<any[]>([]);
+  const [types, setTypes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [show, setShow] = useState(false);
-  const [editing, setEditing] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [form, setForm] = useState<any>({
-    name: "",
-    previewImage: "",
-    type: "",
-    courseCategory: "",
-    articleImages: [],
-    ebookPdf: "",
-    youtubeLink: "",
+    title: "",
+    typeId: "",
+    categoryId: "",
+    thumbnailFile: null,
+    thumbnailUrl: "",
+    thumbnailPreview: "", // For local preview
+    resourceFile: null,
+    fileUrl: "",
   });
 
   const [descEditor, setDescEditor] = useState(EditorState.createEmpty());
   const [textEditor, setTextEditor] = useState(EditorState.createEmpty());
 
-  /* -------------------------------------------------------
-     LOAD ITEMS FROM API
-  -------------------------------------------------------- */
-  const load = async () => {
-    const res = await axios.get(API);
+  const loadContent = async () => {
+    const res = await axios.get(CONTENT_API);
     setItems(res.data);
   };
 
+  const loadTypes = async () => {
+    const res = await axios.get(TYPE_API);
+    setTypes(res.data);
+  };
+
+  const loadCategories = async () => {
+    const res = await axios.get(CATEGORY_API);
+    setCategories(res.data);
+  };
+
   useEffect(() => {
-    load();
+    loadContent();
+    loadTypes();
+    loadCategories();
   }, []);
 
-  /* -------------------------------------------------------
-     OPEN NEW
-  -------------------------------------------------------- */
   const openNew = () => {
-    setEditing(null);
+    setEditingId(null);
     setForm({
-      name: "",
-      previewImage: "",
-      type: "",
-      courseCategory: "",
-      articleImages: [],
-      ebookPdf: "",
-      youtubeLink: "",
+      title: "",
+      typeId: "",
+      categoryId: "",
+      thumbnailFile: null,
+      thumbnailUrl: "",
+      thumbnailPreview: "",
+      resourceFile: null,
+      fileUrl: "",
     });
     setDescEditor(EditorState.createEmpty());
     setTextEditor(EditorState.createEmpty());
     setShow(true);
   };
 
-  /* -------------------------------------------------------
-     OPEN EDIT
-  -------------------------------------------------------- */
   const openEdit = (row: any) => {
-    setEditing(row.id);
-
-    const normalizedImages = (row.articleImages || []).map((img: any) => ({
-      name: img,
-      file: null,
-      preview: `${process.env.PUBLIC_URL}/${img}`,
-    }));
+    setEditingId(row.id);
+    try {
+      if (row.description) {
+        setDescEditor(
+          EditorState.createWithContent(
+            convertFromRaw(JSON.parse(row.description))
+          )
+        );
+      }
+      if (row.content && TEXT_TYPES.includes(row.type?.name)) {
+        setTextEditor(
+          EditorState.createWithContent(convertFromRaw(JSON.parse(row.content)))
+        );
+      }
+    } catch (e) {
+      console.error("Editor Parse Error", e);
+    }
 
     setForm({
-      ...row,
-      articleImages: normalizedImages,
+      title: row.title,
+      typeId: row.type?.id || "",
+      categoryId: row.category?.id || "",
+      thumbnailUrl: row.thumbnailUrl,
+      thumbnailPreview: row.thumbnailUrl, // Use existing URL as preview
+      fileUrl: row.fileUrl,
+      thumbnailFile: null,
+      resourceFile: null,
     });
-
     setShow(true);
   };
 
-  /* -------------------------------------------------------
-     UPLOAD FILE HELPER
-  -------------------------------------------------------- */
-  const uploadFile = async (file: File) => {
+  const upload = async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-
-    const res = await axios.post(`${API}/upload`, fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-
-    return res.data.url; // backend returns URL
+    const res = await axios.post(`${CONTENT_API}/upload`, fd);
+    return res.data.url;
   };
 
-  /* -------------------------------------------------------
-     SAVE (CREATE OR UPDATE)
-  -------------------------------------------------------- */
   const save = async () => {
-    const description = JSON.stringify(
-      convertToRaw(descEditor.getCurrentContent())
-    );
-    const articleText = JSON.stringify(
-      convertToRaw(textEditor.getCurrentContent())
-    );
-
-    let thumbnailUrl = form.thumbnailUrl || "";
-    let fileUrl = "";
-    let content = articleText;
-
-    /* ---- upload preview image ---- */
-    if (form.previewImage instanceof File) {
-      thumbnailUrl = await uploadFile(form.previewImage);
+    if (!form.title || !form.typeId) {
+      alert("Title and Type are required");
+      return;
     }
+    setLoading(true);
+    try {
+      const descJson = JSON.stringify(
+        convertToRaw(descEditor.getCurrentContent())
+      );
+      const textJson = JSON.stringify(
+        convertToRaw(textEditor.getCurrentContent())
+      );
 
-    /* ---- upload article images or ebook ---- */
-    if (form.type === "Article - Image") {
-      if (form.articleImages[0]?.file) {
-        fileUrl = await uploadFile(form.articleImages[0].file);
+      let finalThumb = form.thumbnailUrl;
+      let finalFile = form.fileUrl;
+      let finalContent = textJson;
+
+      if (form.thumbnailFile) {
+        finalThumb = await upload(form.thumbnailFile);
       }
+
+      const selectedType = types.find((t) => t.id === form.typeId);
+      const typeName = selectedType?.name;
+
+      if (TEXT_TYPES.includes(typeName)) {
+        finalContent = textJson;
+      } else if (FILE_TYPES.includes(typeName)) {
+        if (form.resourceFile) finalFile = await upload(form.resourceFile);
+        finalContent = finalFile;
+      }
+
+      const dto = {
+        title: form.title,
+        description: descJson,
+        content: finalContent,
+        fileUrl: finalFile,
+        thumbnailUrl: finalThumb,
+        typeId: form.typeId,
+        categoryId: form.categoryId || undefined,
+        author: "Admin",
+      };
+
+      if (editingId) {
+        await axios.put(`${CONTENT_API}/${editingId}`, dto);
+      } else {
+        await axios.post(CONTENT_API, dto);
+      }
+      setShow(false);
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Save failed");
+    } finally {
+      setLoading(false);
     }
-
-    if (form.type === "E-Book" && form.ebookPdf instanceof File) {
-      fileUrl = await uploadFile(form.ebookPdf);
-    }
-
-    if (form.youtubeLink) {
-      content = form.youtubeLink;
-    }
-
-    /* ---- build DTO ---- */
-    const dto = {
-      typeId: TYPE_MAP[form.type],
-      title: form.name,
-      description,
-      content,
-      fileUrl,
-      thumbnailUrl,
-      categoryId: CATEGORY_MAP[form.courseCategory],
-    };
-
-    /* ---- CREATE OR UPDATE ---- */
-    if (editing) {
-      await axios.patch(`${API}/${editing}`, dto);
-    } else {
-      await axios.post(API, dto);
-    }
-
-    setShow(false);
-    load();
   };
 
-  /* -------------------------------------------------------
-     DELETE
-  -------------------------------------------------------- */
-  const del = async (id: any) => {
-    await axios.delete(`${API}/${id}`);
-    load();
-  };
-
-  /* -------------------------------------------------------
-     SEARCH FILTER
-  -------------------------------------------------------- */
-  const filtered = useMemo(() => {
-    if (!search) return items;
-    return items.filter((x) =>
-      x.title?.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [search, items]);
-
-  /* -------------------------------------------------------
-     TABLE
-  -------------------------------------------------------- */
   const columns = useMemo<ColumnDef<any>[]>(
     () => [
-      { header: "Name", accessorKey: "title" },
-      { header: "Type", accessorKey: "typeId" },
-      { header: "Category", accessorKey: "categoryId" },
+      {
+        header: "Content",
+        id: "thumbnail",
+        cell: ({ row }) => (
+          <div className="d-flex align-items-center">
+            <div className="symbol symbol-50px me-3">
+              <img
+                src={row.original.thumbnailUrl || "/media/avatars/blank.png"}
+                alt=""
+              />
+            </div>
+            <div className="d-flex flex-column">
+              <span className="text-gray-800 fw-bold fs-6">
+                {row.original.title}
+              </span>
+              <span className="text-muted fw-semibold fs-7">
+                {row.original.type?.name}
+              </span>
+            </div>
+          </div>
+        ),
+      },
+      {
+        header: "Type", // ✅ Add a separate Type column
+        accessorKey: "type",
+        cell: ({ row }) => (
+          <span className="badge badge-light-primary fw-semibold">
+            {row.original.type?.name || "—"}
+          </span>
+        ),
+      },
+      {
+        header: "Category",
+        cell: ({ row }) => (
+          <span className="badge badge-light-secondary fw-semibold">
+            {row.original.category?.name || "—"}
+          </span>
+        ),
+      },
+      {
+        header: "Date Created",
+        accessorKey: "createdAt",
+        cell: (info) => (
+          <span className="text-muted fw-semibold">
+            {new Date(info.getValue() as string).toLocaleDateString()}
+          </span>
+        ),
+      },
       {
         header: "Actions",
+        id: "actions",
         cell: ({ row }) => (
-          <div className="d-flex gap-2">
+          <div className="d-flex justify-content-end flex-shrink-0">
             <button
-              className="btn btn-sm btn-light-primary"
+              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1"
               onClick={() => openEdit(row.original)}
             >
-              Edit
+              <KTIcon iconName="pencil" className="fs-3" />
             </button>
             <button
-              className="btn btn-sm btn-light-danger"
-              onClick={() => del(row.original.id)}
+              className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
+              onClick={() => {
+                if (window.confirm("Delete this?"))
+                  axios
+                    .delete(`${CONTENT_API}/${row.original.id}`)
+                    .then(loadContent);
+              }}
             >
-              Delete
+              <KTIcon iconName="trash" className="fs-3" />
             </button>
           </div>
         ),
@@ -234,256 +258,212 @@ export default function ElibraryPage() {
   );
 
   const table = useReactTable({
-    data: filtered,
+    data: useMemo(
+      () =>
+        items.filter((i) =>
+          i.title?.toLowerCase().includes(search.toLowerCase())
+        ),
+      [items, search]
+    ),
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  /* -------------------------------------------------------
-     UI RENDER
-  -------------------------------------------------------- */
   return (
-    <div className="m-4 bg-white p-6 rounded shadow-sm">
-      <div className="d-flex justify-content-between mb-5">
-        <h2 className="fw-bold">E-Library</h2>
-
-        <div className="d-flex gap-3">
+    <div className="app-container container-xxl">
+      <div className="d-flex flex-stack mb-5 mt-5">
+        <div className="d-flex align-items-center position-relative my-1">
+          <KTIcon
+            iconName="magnifier"
+            className="fs-1 position-absolute ms-6"
+          />
           <input
-            className="form-control form-control-solid"
+            type="text"
+            className="form-control form-control-solid w-250px ps-15"
             placeholder="Search..."
-            value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="btn btn-primary" onClick={openNew}>
-            Add
-          </button>
         </div>
+        <button className="btn btn-primary" onClick={openNew}>
+          <KTIcon iconName="plus" className="fs-2" /> Add Content
+        </button>
       </div>
 
-      {/* TABLE */}
       <KTCard>
-        <KTCardBody>
-          <table className="table table-row-dashed fs-6">
-            <thead>
-              {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id}>
-                  {hg.headers.map((h) => (
-                    <th key={h.id}>
-                      {flexRender(h.column.columnDef.header, h.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((r) => (
-                <tr key={r.id}>
-                  {r.getVisibleCells().map((c) => (
-                    <td key={c.id}>
-                      {flexRender(c.column.columnDef.cell, c.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <KTCardBody className="py-4">
+          <div className="table-responsive">
+            <table className="table align-middle table-row-dashed fs-6 gy-5">
+              <thead>
+                {table.getHeaderGroups().map((hg) => (
+                  <tr
+                    key={hg.id}
+                    className="text-start text-muted fw-bold fs-7 text-uppercase gs-0"
+                  >
+                    {hg.headers.map((h) => (
+                      <th key={h.id}>
+                        {flexRender(h.column.columnDef.header, h.getContext())}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="text-gray-600 fw-semibold">
+                {table.getRowModel().rows.map((r) => (
+                  <tr key={r.id}>
+                    {r.getVisibleCells().map((c) => (
+                      <td key={c.id}>
+                        {flexRender(c.column.columnDef.cell, c.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </KTCardBody>
       </KTCard>
 
-      {/* MODAL */}
-      <Modal show={show} onHide={() => setShow(false)} size="xl">
+      <Modal show={show} onHide={() => setShow(false)} size="xl" centered>
         <Modal.Header closeButton>
-          <Modal.Title>{editing ? "Edit Item" : "Add New Item"}</Modal.Title>
+          <Modal.Title className="fw-bold">
+            {editingId ? "Edit" : "Create"}
+          </Modal.Title>
         </Modal.Header>
+        <Modal.Body className="scroll-y mx-5 mx-xl-15 my-7">
+          <div className="row g-9 mb-8">
+            {/* THUMBNAIL UPLOAD SECTION */}
+            <div className="col-12 text-center mb-7">
+              <label className="fs-6 fw-semibold mb-2 d-block text-start">
+                Thumbnail Image
+              </label>
+              <div
+                className="image-input image-input-outline"
+                style={{ backgroundImage: `url(/media/svg/avatars/blank.svg)` }}
+              >
+                <div
+                  className="image-input-wrapper w-125px h-125px"
+                  style={{
+                    backgroundImage: `url(${
+                      form.thumbnailPreview ||
+                      "/media/svg/files/blank-image.svg"
+                    })`,
+                    backgroundSize: "cover",
+                  }}
+                ></div>
+                <label
+                  className="btn btn-icon btn-circle btn-active-color-primary w-25px h-25px bg-body shadow"
+                  data-kt-image-input-action="change"
+                >
+                  <KTIcon iconName="pencil" className="fs-7" />
+                  <input
+                    type="file"
+                    name="avatar"
+                    accept=".png, .jpg, .jpeg"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file)
+                        setForm({
+                          ...form,
+                          thumbnailFile: file,
+                          thumbnailPreview: URL.createObjectURL(file),
+                        });
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="form-text">
+                Allowed file types: png, jpg, jpeg.
+              </div>
+            </div>
 
-        <Modal.Body>
-          <div className="container">
-            {/* NAME */}
-            <label className="form-label fw-bold mt-3">Name</label>
-            <input
-              className="form-control form-control-solid"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-
-            {/* PREVIEW IMAGE */}
-            <label className="form-label fw-bold mt-3">Preview Image</label>
-            <input
-              type="file"
-              className="form-control form-control-solid"
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  previewImage: e.target.files?.[0] || "",
-                })
-              }
-            />
-
-            {/* TYPE */}
-            <label className="form-label fw-bold mt-3">Type</label>
-            <select
-              className="form-select form-select-solid"
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-            >
-              <option value="">Select...</option>
-              {Object.keys(TYPE_MAP).map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-
-            {/* CATEGORY */}
-            <label className="form-label fw-bold mt-3">Course Category</label>
-            <select
-              className="form-select form-select-solid"
-              value={form.courseCategory}
-              onChange={(e) =>
-                setForm({ ...form, courseCategory: e.target.value })
-              }
-            >
-              <option value="">Select...</option>
-              {Object.keys(CATEGORY_MAP).map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-
-            {/* DESCRIPTION */}
-            <label className="form-label fw-bold mt-4">Description</label>
-            <div style={{ border: "1px solid #e3e6ef", borderRadius: 6 }}>
-              <Editor
-                editorState={descEditor}
-                onEditorStateChange={setDescEditor}
-                editorClassName="p-3"
+            <div className="col-12">
+              <label className="required fs-6 fw-semibold mb-2">Title</label>
+              <input
+                className="form-control form-control-solid"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
             </div>
 
-            {/* CONTENT SECTION */}
-            <h5 className="fw-bold mt-5">Content Section</h5>
-            <hr />
+            <div className="col-md-6">
+              <label className="required fs-6 fw-semibold mb-2">Type</label>
+              <select
+                className="form-select form-select-solid"
+                value={form.typeId}
+                onChange={(e) => setForm({ ...form, typeId: e.target.value })}
+              >
+                <option value="">Select...</option>
+                {types.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            {/* ARTICLE WITH IMAGES */}
-            {form.type === "Article - Image" && (
-              <div className="mt-4">
-                <label className="form-label fw-bold">
-                  Upload Multiple Images
-                </label>
+            <div className="col-md-6">
+              <label className="fs-6 fw-semibold mb-2">Category</label>
+              <select
+                className="form-select form-select-solid"
+                value={form.categoryId}
+                onChange={(e) =>
+                  setForm({ ...form, categoryId: e.target.value })
+                }
+              >
+                <option value="">Select...</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="form-control form-control-solid mb-4"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    const newImages = files.map((file) => ({
-                      name: file.name,
-                      file,
-                      preview: URL.createObjectURL(file),
-                    }));
-                    setForm({
-                      ...form,
-                      articleImages: [...form.articleImages, ...newImages],
-                    });
-                  }}
+            <div className="col-12">
+              <label className="fs-6 fw-semibold mb-2">Description</label>
+              <div className="border rounded-2">
+                <Editor
+                  editorState={descEditor}
+                  onEditorStateChange={setDescEditor}
+                  toolbarClassName="border-0 border-bottom-1"
+                  editorClassName="px-3 min-h-100px"
                 />
-
-                <div className="row g-4">
-                  {form.articleImages.map((img: any, idx: number) => (
-                    <div className="col-6 col-md-4 col-lg-3" key={idx}>
-                      <div className="card shadow-sm h-100 position-relative">
-                        <button
-                          type="button"
-                          className="btn btn-icon btn-sm btn-light-danger position-absolute top-0 end-0 m-2"
-                          onClick={() =>
-                            setForm({
-                              ...form,
-                              articleImages: form.articleImages.filter(
-                                (_: any, i: number) => i !== idx
-                              ),
-                            })
-                          }
-                        >
-                          <i className="bi bi-x-lg fs-6"></i>
-                        </button>
-
-                        <img
-                          src={
-                            img.preview
-                              ? img.preview
-                              : img.name
-                              ? `${process.env.PUBLIC_URL}/${img.name}`
-                              : ""
-                          }
-                          alt="preview"
-                          className="card-img-top"
-                          style={{ height: "150px", objectFit: "cover" }}
-                        />
-
-                        <div className="card-body py-2 px-3">
-                          <p className="text-gray-700 fw-semibold small text-truncate mb-0">
-                            {img.name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
-            )}
+            </div>
 
-            {/* TEXT ARTICLE */}
-            {form.type === "Article - Text" && (
-              <>
-                <label className="form-label fw-bold">Content</label>
-                <div style={{ border: "1px solid #e3e6ef", borderRadius: 6 }}>
+            <div className="col-12">
+              <label className="fs-6 fw-semibold mb-2">Resource Content</label>
+              {TEXT_TYPES.includes(
+                types.find((t) => t.id === form.typeId)?.name
+              ) ? (
+                <div className="border rounded-2">
                   <Editor
                     editorState={textEditor}
                     onEditorStateChange={setTextEditor}
-                    editorClassName="p-3"
+                    toolbarClassName="border-0 border-bottom-1"
+                    editorClassName="px-3 min-h-200px"
                   />
                 </div>
-              </>
-            )}
-
-            {/* E-BOOK PDF */}
-            {form.type === "E-Book" && (
-              <>
-                <label className="form-label fw-bold">Upload PDF</label>
+              ) : FILE_TYPES.includes(
+                  types.find((t) => t.id === form.typeId)?.name
+                ) ? (
                 <input
                   type="file"
-                  accept="application/pdf"
                   className="form-control form-control-solid"
                   onChange={(e) =>
-                    setForm({ ...form, ebookPdf: e.target.files?.[0] })
+                    setForm({ ...form, resourceFile: e.target.files?.[0] })
                   }
                 />
-              </>
-            )}
-
-            {/* YOUTUBE CONTENT */}
-            {(form.type === "Podcast" ||
-              form.type === "Video" ||
-              form.type === "Youth-Voice") && (
-              <>
-                <label className="form-label fw-bold">YouTube Link</label>
-                <input
-                  className="form-control form-control-solid"
-                  value={form.youtubeLink}
-                  onChange={(e) =>
-                    setForm({ ...form, youtubeLink: e.target.value })
-                  }
-                />
-              </>
-            )}
+              ) : null}
+            </div>
           </div>
         </Modal.Body>
-
-        <Modal.Footer>
-          <button className="btn btn-light" onClick={() => setShow(false)}>
+        <Modal.Footer className="justify-content-center">
+          <button className="btn btn-light me-3" onClick={() => setShow(false)}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={save}>
-            Save
+          <button className="btn btn-primary" onClick={save} disabled={loading}>
+            {loading ? <Spinner size="sm" /> : "Save Changes"}
           </button>
         </Modal.Footer>
       </Modal>
