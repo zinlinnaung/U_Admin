@@ -3,10 +3,8 @@ import * as Yup from "yup";
 import clsx from "clsx";
 import { Link } from "react-router-dom";
 import { useFormik } from "formik";
-import { getUserByToken, login } from "../core/_requests";
-import { toAbsoluteUrl } from "../../../../_metronic/helpers";
+import axios from "axios";
 import { useAuth } from "../core/Auth";
-import { UserModel } from "../core/_models";
 
 const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -21,15 +19,9 @@ const loginSchema = Yup.object().shape({
 });
 
 const initialValues = {
-  email: "admin@admin.com",
-  password: "admin123",
+  email: "",
+  password: "",
 };
-
-/*
-  Formik+YUP+Typescript:
-  https://jaredpalmer.com/formik/docs/tutorial#getfieldprops
-  https://medium.com/@maurice.de.beijer/yup-validation-and-typescript-and-formik-6c342578a20e
-*/
 
 export function Login() {
   const [loading, setLoading] = useState(false);
@@ -40,44 +32,33 @@ export function Login() {
     validationSchema: loginSchema,
     onSubmit: async (values, { setStatus, setSubmitting }) => {
       setLoading(true);
+      setSubmitting(true);
+      // try {
+      // Replace with your actual NestJS API URL
+      const API_URL = "https://mypadminapi.bitmyanmar.info/api";
 
-      // Hard-coded authentication
-      if (
-        values.email === "admin@admin.com" &&
-        values.password === "admin123"
-      ) {
-        const fakeAuth = {
-          api_token: "static-demo-token-123",
-        };
+      // 1. Post to login endpoint
+      const { data: authResponse } = await axios.post(
+        `${API_URL}/users/login`,
+        {
+          email: values.email,
+          password: values.password,
+        }
+      );
 
-        // save token (same as Keen theme)
-        saveAuth(fakeAuth);
-
-        // OPTIONAL: Fake user info
-        const fakeUser: UserModel = {
-          id: 1,
-          username: "admin",
-          email: "admin@admin.com",
-          password: "admin123",
-          first_name: "Admin",
-          last_name: "User",
-          fullname: "Admin User",
-          occupation: "Administrator",
-          companyName: "My Company",
-          phone: "09999999999",
-          roles: [1],
-          pic: "",
-        };
-
-        setCurrentUser(fakeUser);
-        return;
-      }
-
-      // Wrong login
-      saveAuth(undefined);
-      setStatus("The login details are incorrect");
-      setSubmitting(false);
-      setLoading(false);
+      // 2. authResponse should contain { api_token, user }
+      // user object includes instructor: { roles: [...] } from Prisma include
+      saveAuth({ api_token: authResponse.api_token });
+      setCurrentUser(authResponse.user);
+      // } catch (error: any) {
+      //   console.error(error);
+      //   saveAuth(undefined);
+      //   setStatus(
+      //     error.response?.data?.message || "The login details are incorrect"
+      //   );
+      //   setSubmitting(false);
+      //   setLoading(false);
+      // }
     },
   });
 
@@ -88,37 +69,19 @@ export function Login() {
       noValidate
       id="kt_login_signin_form"
     >
-      {/* begin::Heading */}
       <div className="text-center mb-11">
         <h1 className="text-gray-900 fw-bolder mb-3">Sign In</h1>
         <div className="text-gray-500 fw-semibold fs-6">
           Myanmar Youth Platform
         </div>
       </div>
-      {/* begin::Heading */}
 
-      {/* begin::Login options */}
-
-      {/* end::Login options */}
-
-      {/* begin::Separator */}
-
-      {/* end::Separator */}
-
-      {formik.status ? (
+      {formik.status && (
         <div className="mb-lg-15 alert alert-danger">
           <div className="alert-text font-weight-bold">{formik.status}</div>
         </div>
-      ) : (
-        <div className="mb-10 bg-light-info p-8 rounded">
-          <div className="text-info">
-            Use account <strong>admin@admin.com</strong> and password{" "}
-            <strong>admin123</strong> to continue.
-          </div>
-        </div>
       )}
 
-      {/* begin::Form group */}
       <div className="fv-row mb-8">
         <label className="form-label fs-6 fw-bolder text-gray-900">Email</label>
         <input
@@ -127,23 +90,20 @@ export function Login() {
           className={clsx(
             "form-control bg-transparent",
             { "is-invalid": formik.touched.email && formik.errors.email },
-            {
-              "is-valid": formik.touched.email && !formik.errors.email,
-            }
+            { "is-valid": formik.touched.email && !formik.errors.email }
           )}
           type="email"
-          name="email"
           autoComplete="off"
         />
         {formik.touched.email && formik.errors.email && (
           <div className="fv-plugins-message-container">
-            <span role="alert">{formik.errors.email}</span>
+            <span role="alert" className="text-danger">
+              {formik.errors.email}
+            </span>
           </div>
         )}
       </div>
-      {/* end::Form group */}
 
-      {/* begin::Form group */}
       <div className="fv-row mb-3">
         <label className="form-label fw-bolder text-gray-900 fs-6 mb-0">
           Password
@@ -154,29 +114,21 @@ export function Login() {
           {...formik.getFieldProps("password")}
           className={clsx(
             "form-control bg-transparent",
-            {
-              "is-invalid": formik.touched.password && formik.errors.password,
-            },
-            {
-              "is-valid": formik.touched.password && !formik.errors.password,
-            }
+            { "is-invalid": formik.touched.password && formik.errors.password },
+            { "is-valid": formik.touched.password && !formik.errors.password }
           )}
         />
         {formik.touched.password && formik.errors.password && (
           <div className="fv-plugins-message-container">
             <div className="fv-help-block">
-              <span role="alert">{formik.errors.password}</span>
+              <span role="alert" className="text-danger">
+                {formik.errors.password}
+              </span>
             </div>
           </div>
         )}
       </div>
-      {/* end::Form group */}
 
-      {/* begin::Wrapper */}
-
-      {/* end::Wrapper */}
-
-      {/* begin::Action */}
       <div className="d-grid mb-10">
         <button
           type="submit"
@@ -193,7 +145,6 @@ export function Login() {
           )}
         </button>
       </div>
-      {/* end::Action */}
 
       <div className="text-gray-500 text-center fw-semibold fs-6">
         Not a Member yet?{" "}

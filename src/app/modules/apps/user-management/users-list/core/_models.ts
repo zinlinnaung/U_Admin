@@ -1,49 +1,34 @@
 import { ID, Response } from "../../../../../../_metronic/helpers";
 
+export interface Role {
+  id: string;
+  name: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+}
+
 export interface Instructor {
   id?: ID;
-  name?: string;
-  email?: string;
-  password?: string;
+  userId?: string; // Needed for creation
+  fullName?: string; // Real field from backend
+  bio?: string; // Real field from backend
+  user?: User; // From include in Prisma
+  roles?: Role[]; // From include in Prisma
+  roleIds?: string[]; // Needed for update/create
+  // Optional mock fields for UI compatibility
   courseCount?: number;
   enrollmentCount?: number;
-  lastLogin?: string;
-  roles?: string[];
 }
 
 export type InstructorsQueryResponse = Response<Array<Instructor>>;
 
 export const initialInstructor: Instructor = {
-  id: undefined,
-  name: "",
-  email: "",
-  password: "",
-  courseCount: 0,
-  enrollmentCount: 0,
-  lastLogin: "",
-  roles: [],
-};
-
-export interface Student {
-  id?: ID;
-  name?: string;
-  email?: string;
-  enrollmentDate?: string;
-  courseCount?: number;
-  gpa?: number;
-  status?: "Active" | "Inactive" | "Graduated";
-  lastLogin?: string;
-}
-
-export type StudentsQueryResponse = Response<Array<Student>>;
-
-export const initialStudent: Student = {
-  id: undefined,
-  name: "",
-  email: "",
-  enrollmentDate: "",
-  courseCount: 0,
-  gpa: 0,
-  status: "Active",
-  lastLogin: "",
+  fullName: "",
+  userId: "",
+  bio: "",
+  roleIds: [],
 };

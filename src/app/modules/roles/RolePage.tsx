@@ -1,5 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { KTIcon } from "../../../_metronic/helpers";
+
+// API Endpoint
+const API_URL = "https://mypadminapi.bitmyanmar.info/api/roles";
 
 interface Permission {
   id: string;
@@ -13,35 +17,38 @@ interface PermissionGroup {
 }
 
 interface Role {
-  id: number;
+  id: string; // Changed to string (UUID from backend)
   name: string;
   description: string;
   permissions: string[];
+  _count?: {
+    instructors: number;
+  };
 }
 
 export function RolePage() {
-  // ✅ Permission groups (grouped by type)
+  // ✅ Permission groups (Updated IDs to match Backend Enums)
   const PERMISSION_GROUPS: PermissionGroup[] = [
     {
       type: "Students",
       permissions: [
         {
-          id: "create_student",
+          id: "CREATE_STUDENT",
           label: "Create Student",
           description: "Can create new students",
         },
         {
-          id: "edit_student",
+          id: "EDIT_STUDENT",
           label: "Edit Student",
           description: "Can edit student info",
         },
         {
-          id: "delete_student",
+          id: "DELETE_STUDENT",
           label: "Delete Student",
           description: "Can delete student records",
         },
         {
-          id: "view_student",
+          id: "VIEW_STUDENT",
           label: "View Student",
           description: "Can view student details",
         },
@@ -51,22 +58,22 @@ export function RolePage() {
       type: "Instructors",
       permissions: [
         {
-          id: "create_instructor",
+          id: "CREATE_INSTRUCTOR",
           label: "Create Instructor",
           description: "Can create new instructors",
         },
         {
-          id: "edit_instructor",
+          id: "EDIT_INSTRUCTOR",
           label: "Edit Instructor",
           description: "Can edit instructor details",
         },
         {
-          id: "delete_instructor",
+          id: "DELETE_INSTRUCTOR",
           label: "Delete Instructor",
           description: "Can delete instructors",
         },
         {
-          id: "view_instructor",
+          id: "VIEW_INSTRUCTOR",
           label: "View Instructor",
           description: "Can view instructor details",
         },
@@ -76,22 +83,22 @@ export function RolePage() {
       type: "Courses",
       permissions: [
         {
-          id: "create_course",
+          id: "CREATE_COURSE",
           label: "Create Course",
           description: "Can create new courses",
         },
         {
-          id: "edit_course",
+          id: "EDIT_COURSE",
           label: "Edit Course",
           description: "Can edit existing courses",
         },
         {
-          id: "delete_course",
+          id: "DELETE_COURSE",
           label: "Delete Course",
           description: "Can delete courses",
         },
         {
-          id: "view_course",
+          id: "VIEW_COURSE",
           label: "View Course",
           description: "Can view course content",
         },
@@ -99,33 +106,33 @@ export function RolePage() {
     },
   ];
 
-  const [roles, setRoles] = useState<Role[]>([
-    {
-      id: 1,
-      name: "Admin",
-      description: "Full access to all system features",
-      permissions: PERMISSION_GROUPS.flatMap((g) =>
-        g.permissions.map((p) => p.id)
-      ),
-    },
-    {
-      id: 2,
-      name: "Instructor",
-      description: "Can create, edit, and manage courses",
-      permissions: [
-        "create_course",
-        "edit_course",
-        "view_course",
-        "view_student",
-      ],
-    },
-  ]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Form States
   const [showModal, setShowModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+
+  // ✅ Fetch Roles from API
+  const fetchRoles = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(API_URL);
+      setRoles(response.data);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      alert("Failed to load roles");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoles();
+  }, []);
 
   // ✅ Reset form state
   const resetForm = () => {
@@ -152,9 +159,16 @@ export function RolePage() {
   };
 
   // ✅ Delete role
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this role?")) {
-      setRoles(roles.filter((r) => r.id !== id));
+      try {
+        await axios.delete(`${API_URL}/${id}`);
+        // Refresh list
+        fetchRoles();
+      } catch (error) {
+        console.error("Error deleting role:", error);
+        alert("Failed to delete role");
+      }
     }
   };
 
@@ -184,24 +198,31 @@ export function RolePage() {
     }
   };
 
-  // ✅ Submit form
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // ✅ Submit form (Create or Update)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const newRole: Role = {
-      id: editingRole ? editingRole.id : Date.now(),
+    const payload = {
       name,
       description,
       permissions: selectedPermissions,
     };
 
-    if (editingRole) {
-      setRoles(roles.map((r) => (r.id === editingRole.id ? newRole : r)));
-    } else {
-      setRoles([...roles, newRole]);
-    }
+    try {
+      if (editingRole) {
+        // UPDATE
+        await axios.patch(`${API_URL}/${editingRole.id}`, payload);
+      } else {
+        // CREATE
+        await axios.post(API_URL, payload);
+      }
 
-    resetForm();
+      resetForm();
+      fetchRoles(); // Refresh data from server
+    } catch (error) {
+      console.error("Error saving role:", error);
+      alert("Failed to save role. Please check inputs.");
+    }
   };
 
   return (
@@ -227,65 +248,75 @@ export function RolePage() {
         {/* Table */}
         <div className="card-body py-3">
           <div className="table-responsive">
-            <table className="table table-row-bordered align-middle gy-4">
-              <thead>
-                <tr className="fw-bold text-muted">
-                  <th className="min-w-150px">Role</th>
-                  <th className="min-w-200px">Description</th>
-                  <th className="min-w-250px">Permissions</th>
-                  <th className="text-end min-w-100px">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roles.map((role) => (
-                  <tr key={role.id}>
-                    <td>{role.name}</td>
-                    <td>
-                      {role.description || (
-                        <span className="text-muted">No description</span>
-                      )}
-                    </td>
-                    <td>
-                      {role.permissions.length === 0 ? (
-                        <span className="text-muted">No permissions</span>
-                      ) : (
-                        <div className="d-flex flex-wrap gap-1">
-                          {role.permissions.map((permId) => (
-                            <span
-                              key={permId}
-                              className="badge badge-light-primary"
-                            >
-                              {permId}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="text-end">
-                      <button
-                        className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-2"
-                        onClick={() => handleEdit(role)}
-                      >
-                        <KTIcon iconName="pencil" className="fs-3" />
-                      </button>
-                      <button
-                        className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
-                        onClick={() => handleDelete(role.id)}
-                      >
-                        <KTIcon iconName="trash" className="fs-3" />
-                      </button>
-                    </td>
+            {isLoading ? (
+              <div className="d-flex justify-content-center py-10">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              <table className="table table-row-bordered align-middle gy-4">
+                <thead>
+                  <tr className="fw-bold text-muted">
+                    <th className="min-w-150px">Role</th>
+                    <th className="min-w-200px">Description</th>
+                    <th className="min-w-250px">Permissions</th>
+                    <th className="text-end min-w-100px">Actions</th>
                   </tr>
-                ))}
-                {roles.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center text-muted py-10">
-                      No roles found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {roles.map((role) => (
+                    <tr key={role.id}>
+                      <td>
+                        <span className="fw-bold text-dark">{role.name}</span>
+                      </td>
+                      <td>
+                        {role.description || (
+                          <span className="text-muted">No description</span>
+                        )}
+                      </td>
+                      <td>
+                        {role.permissions.length === 0 ? (
+                          <span className="text-muted">No permissions</span>
+                        ) : (
+                          <div className="d-flex flex-wrap gap-1">
+                            {role.permissions.map((permId) => (
+                              <span
+                                key={permId}
+                                className="badge badge-light-primary"
+                              >
+                                {permId}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-end">
+                        <button
+                          className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-2"
+                          onClick={() => handleEdit(role)}
+                        >
+                          <KTIcon iconName="pencil" className="fs-3" />
+                        </button>
+                        <button
+                          className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm"
+                          onClick={() => handleDelete(role.id)}
+                        >
+                          <KTIcon iconName="trash" className="fs-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {roles.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="text-center text-muted py-10">
+                        No roles found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
