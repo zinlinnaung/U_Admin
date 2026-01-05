@@ -42,7 +42,7 @@ const AuthProvider: FC<WithChildren> = ({ children }) => {
     if (auth) {
       authHelper.setAuth(auth);
     } else {
-      authHelper.removeAuth();
+      // authHelper.removeAuth();
     }
   };
 
@@ -60,26 +60,28 @@ const AuthProvider: FC<WithChildren> = ({ children }) => {
   );
 };
 
+// src/app/modules/auth/core/Auth.tsx
 const AuthInit: FC<WithChildren> = ({ children }) => {
   const { auth, logout, setCurrentUser } = useAuth();
   const [showSplashScreen, setShowSplashScreen] = useState(true);
 
   useEffect(() => {
-    const requestUser = async (apiToken: string) => {
+    const requestUser = async (token: string) => {
       try {
-        // Fetch user data from backend using the ID stored in api_token
-        const { data } = await getUserByToken(apiToken);
+        // Clean the token: remove 'secret-token-' if it exists
+        const cleanId = token.replace("secret-token-", "");
+
+        const { data } = await getUserByToken(cleanId);
         if (data) {
           setCurrentUser(data);
         }
       } catch (error: any) {
-        console.error("Reload Auth Error:", error);
-        // Only logout if the token is definitely invalid (401 or 404)
+        console.error("Initialization Error:", error);
+        // Only logout if the error is 401 (Unauthorized) or 404 (User Deleted)
         if (error.response?.status === 401 || error.response?.status === 404) {
           logout();
         }
       } finally {
-        // Stop showing splash screen only AFTER the API call finishes
         setShowSplashScreen(false);
       }
     };

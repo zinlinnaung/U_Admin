@@ -46,19 +46,8 @@ export function Login() {
         }
       );
 
-      // 2. authResponse should contain { api_token, user }
-      // user object includes instructor: { roles: [...] } from Prisma include
       saveAuth({ api_token: authResponse.api_token });
       setCurrentUser(authResponse.user);
-      // } catch (error: any) {
-      //   console.error(error);
-      //   saveAuth(undefined);
-      //   setStatus(
-      //     error.response?.data?.message || "The login details are incorrect"
-      //   );
-      //   setSubmitting(false);
-      //   setLoading(false);
-      // }
     },
   });
 

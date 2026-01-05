@@ -6,10 +6,9 @@ import { Logout, AuthPage, useAuth } from "../modules/auth";
 import { App } from "../App";
 
 const { BASE_URL } = import.meta.env;
-
+// src/app/routing/AppRoutes.tsx
 const AppRoutes: FC = () => {
-  // 1. Get both auth (from localStorage) and currentUser (from API)
-  const { auth, currentUser } = useAuth();
+  const { auth } = useAuth(); // Only check for 'auth' token here
 
   return (
     <BrowserRouter basename={BASE_URL}>
@@ -18,10 +17,8 @@ const AppRoutes: FC = () => {
           <Route path="error/*" element={<ErrorsPage />} />
           <Route path="logout" element={<Logout />} />
 
-          {/* 2. THE FIX: 
-             If 'auth' exists in localStorage, it means the user was logged in.
-             We trust the 'auth' token/ID during the reload to keep the user 
-             in the Private section while AuthInit fetches the full profile.
+          {/* FIX: Use 'auth' instead of 'currentUser'. 
+            This keeps the user inside PrivateRoutes while the API fetches the profile.
           */}
           {auth ? (
             <>
