@@ -61,6 +61,13 @@ export function AsideMenuMain() {
           hasBullet={true}
           bsTitle="feedback management"
         />
+
+        <AsideMenuItem
+          to="/apps/user-on-course"
+          title="User On Course"
+          hasBullet={true}
+          bsTitle="UserOnCourse management"
+        />
       </AsideMenuItemWithSubMain>
 
       <AsideMenuItemWithSubMain

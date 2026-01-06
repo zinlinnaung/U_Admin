@@ -22,6 +22,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import FeedbackTemplate from "../modules/apps/courses/FeedbackTemplate";
 import CertificateList from "../modules/apps/certificate/CertiicateList";
 import FeedbackList from "../modules/apps/courses/FeedbackList";
+import UserOnCourseList from "../modules/apps/courses/UserOnCourseList";
 
 const PrivateRoutes = () => {
   const ProfilePage = lazy(() => import("../modules/profile/ProfilePage"));
@@ -73,6 +74,7 @@ const PrivateRoutes = () => {
             </SuspensedView>
           }
         />
+
         <Route
           path="crafted/account/*"
           element={
@@ -127,6 +129,15 @@ const PrivateRoutes = () => {
               <DndProvider backend={HTML5Backend}>
                 <CertificateEditor2 />
               </DndProvider>
+            </SuspensedView>
+          }
+        />
+
+        <Route
+          path="apps/user-on-course"
+          element={
+            <SuspensedView>
+              <UserOnCourseList />
             </SuspensedView>
           }
         />
