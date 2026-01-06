@@ -147,7 +147,7 @@ const UserOnCourseList: React.FC = () => {
                 <tr className="fw-bold text-muted text-uppercase fs-7">
                   <th className="min-w-150px">Student</th>
                   <th className="min-w-150px">Course</th>
-                  <th className="min-w-100px">Date</th>
+                  <th className="min-w-100px">Enrolled Date</th>
                   <th className="min-w-120px">Progress</th>
                   <th className="min-w-100px text-end">Status</th>
                 </tr>
@@ -157,13 +157,13 @@ const UserOnCourseList: React.FC = () => {
                   <tr key={item.id}>
                     <td>
                       <div className="d-flex align-items-center">
-                        <div className="symbol symbol-45px me-5">
+                        {/* <div className="symbol symbol-45px me-5">
                           <span className="symbol-label bg-light-info text-info fw-bold">
                             {(usernames[item.userId] || "U")
                               .charAt(0)
                               .toUpperCase()}
                           </span>
-                        </div>
+                        </div> */}
                         <div className="d-flex justify-content-start flex-column">
                           <span className="text-dark fw-bold fs-6">
                             {usernames[item.userId]}

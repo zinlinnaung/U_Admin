@@ -17,6 +17,9 @@ import draftToHtml from "draftjs-to-html";
 import htmlToDraft from "html-to-draftjs";
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 
+// 1. Import useAuth to access current user data
+import { useAuth } from "../../../../app/modules/auth";
+
 // ----------------------
 // CONFIG / Endpoints
 // ----------------------
@@ -46,12 +49,30 @@ export type Course = {
   isDeleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string | null;
+  updatedBy?: string | null;
 };
 
 type Category = { id: string; name: string };
 
+// Helper Component to fetch and show username
+const UserDisplay: FC<{ userId?: string | null }> = ({ userId }) => {
+  const [name, setName] = useState<string>("...");
+  useEffect(() => {
+    if (!userId) return;
+    axios
+      .get(`https://mypadminapi.bitmyanmar.info/api/users/${userId}`)
+      .then((res) => setName(res.data.username || "Unknown"))
+      .catch(() => setName("Error"));
+  }, [userId]);
+  return <span>{name}</span>;
+};
+
 const CoursePage: FC = () => {
   const navigate = useNavigate();
+
+  // 2. Initialize Auth Hook
+  const { currentUser } = useAuth();
 
   // Data State
   const [courses, setCourses] = useState<Course[]>([]);
@@ -243,6 +264,7 @@ const CoursePage: FC = () => {
     }
   };
 
+  // 3. Updated handleSave with createdBy/updatedBy logic
   const handleSave = async () => {
     if (!form.name || !form.name.trim()) {
       alert("Name is required.");
@@ -255,7 +277,10 @@ const CoursePage: FC = () => {
       );
       const uploadedImageUrl = await uploadImageIfAny();
 
-      // IMPORTANT: Clean the payload to convert empty strings to null for UUID fields
+      // 1. Capture the User ID safely as a string
+      // This handles the TS(2322) error by ensuring a string or null
+      const currentUserId = currentUser?.id ? String(currentUser.id) : null;
+
       const payload: Partial<Course> = {
         name: form.name,
         image: uploadedImageUrl ?? form.image ?? null,
@@ -276,11 +301,17 @@ const CoursePage: FC = () => {
         videoCount: form.videoCount ?? 0,
         rating: form.rating ?? 0,
         enrolledCount: form.enrolledCount ?? 0,
+        // Use the converted string ID
+        updatedBy: currentUserId,
       };
 
       if (editingCourse && editingCourse.id) {
+        // UPDATE MODE
         await axios.patch(`${API_URL}/${editingCourse.id}`, payload);
       } else {
+        // CREATE MODE
+        // Also apply the string ID here
+        payload.createdBy = currentUserId;
         await axios.post(API_URL, payload);
       }
 
@@ -288,7 +319,7 @@ const CoursePage: FC = () => {
       handleClose();
     } catch (err) {
       console.error("Save error:", err);
-      alert("Error saving course. Check console for details.");
+      alert("Error saving course.");
     }
   };
 
@@ -335,6 +366,14 @@ const CoursePage: FC = () => {
           return <span>{cat ? cat.name : "-"}</span>;
         },
         id: "category",
+      },
+      {
+        header: "Created By",
+        cell: ({ row }) => <UserDisplay userId={row.original.createdBy} />,
+      },
+      {
+        header: "Updated By",
+        cell: ({ row }) => <UserDisplay userId={row.original.updatedBy} />,
       },
       {
         header: "Created At",
@@ -559,7 +598,6 @@ const CoursePage: FC = () => {
 
 export default CoursePage;
 
-// ActionCell Component remains largely the same
 type ActionCellProps = {
   courseId?: string;
   onDelete: (id?: string) => void;

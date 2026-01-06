@@ -42,7 +42,7 @@ const InstructorInfoCell: FC<Props> = ({ instructor }) => {
       {/* Name & Email */}
       <div className="d-flex flex-column">
         <a href="#" className="text-gray-800 text-hover-primary mb-1 fw-bold">
-          {instructor.name}
+          {instructor.fullName}
         </a>
         {/* {instructor.email && (
           <span className="text-muted fs-7">{instructor.email}</span>

@@ -41,49 +41,39 @@ const instructorsColumns: ColumnDef<Instructor>[] = [
     id: "name",
     cell: (info) => <InstructorInfoCell instructor={info.row.original} />,
   },
+
   // {
   //   header: (props) => (
   //     <InstructorCustomHeader
   //       tableProps={props}
-  //       title="Password"
+  //       title="Course Count"
   //       className="min-w-125px"
   //     />
   //   ),
-  //   id: "password",
-  //   cell: (info) => <InstructorPasswordCell id={info.row.original.id} />,
+  //   id: "courseCount",
+  //   cell: (info) => (
+  //     <InstructorStatsCell
+  //       count={info.row.original.courseCount || 0}
+  //       type="course"
+  //     />
+  //   ),
   // },
-  {
-    header: (props) => (
-      <InstructorCustomHeader
-        tableProps={props}
-        title="Course Count"
-        className="min-w-125px"
-      />
-    ),
-    id: "courseCount",
-    cell: (info) => (
-      <InstructorStatsCell
-        count={info.row.original.courseCount || 0}
-        type="course"
-      />
-    ),
-  },
-  {
-    header: (props) => (
-      <InstructorCustomHeader
-        tableProps={props}
-        title="Enrollment Count"
-        className="min-w-150px"
-      />
-    ),
-    id: "enrollmentCount",
-    cell: (info) => (
-      <InstructorStatsCell
-        count={info.row.original.enrollmentCount || 0}
-        type="enrollment"
-      />
-    ),
-  },
+  // {
+  //   header: (props) => (
+  //     <InstructorCustomHeader
+  //       tableProps={props}
+  //       title="Enrollment Count"
+  //       className="min-w-150px"
+  //     />
+  //   ),
+  //   id: "enrollmentCount",
+  //   cell: (info) => (
+  //     <InstructorStatsCell
+  //       count={info.row.original.enrollmentCount || 0}
+  //       type="enrollment"
+  //     />
+  //   ),
+  // },
   {
     header: (props) => (
       <InstructorCustomHeader
@@ -94,7 +84,7 @@ const instructorsColumns: ColumnDef<Instructor>[] = [
     ),
     id: "lastLogin",
     cell: (info) => (
-      <InstructorLastLoginCell lastLogin={info.row.original.lastLogin} />
+      <InstructorLastLoginCell lastLogin={info.row.original.updatedAt} />
     ),
   },
   {

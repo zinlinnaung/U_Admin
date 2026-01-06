@@ -20,6 +20,7 @@ export interface Instructor {
   roles?: Role[]; // From include in Prisma
   roleIds?: string[]; // Needed for update/create
   // Optional mock fields for UI compatibility
+  updatedAt?: string;
   courseCount?: number;
   enrollmentCount?: number;
 }
