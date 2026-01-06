@@ -1,267 +1,146 @@
 import { FC, useState, useEffect } from "react";
-import clsx from "clsx";
-import { ID } from "../../../../../../_metronic/helpers";
-import { useQueryResponse } from "../core/QueryResponseProvider";
-import { Instructor } from "../core/_models";
+import * as Yup from "yup";
+import { useFormik } from "formik";
+import { ID, isNotEmpty } from "../../../../../../_metronic/helpers";
+import { Instructor, Role } from "../core/_models";
 import {
   createInstructor,
   getInstructorById,
   updateInstructor,
+  getAllRoles,
 } from "../core/_requests";
+import { useQueryResponse } from "../core/QueryResponseProvider";
 
 type Props = {
-  instructorId?: ID;
+  instructorId?: ID; // Fixed: Changed from string to ID
   onClose: () => void;
 };
 
-const ROLES = [
-  {
-    id: "admin",
-    label: "Admin",
-    description: "Full access to all features and data.",
-  },
-  {
-    id: "instructor",
-    label: "Instructor",
-    description: "Can create and manage courses and grade students.",
-  },
-  {
-    id: "assistant",
-    label: "Assistant",
-    description: "Helps manage course materials and monitor progress.",
-  },
-  {
-    id: "viewer",
-    label: "Viewer",
-    description: "Can view dashboards but cannot make changes.",
-  },
-];
+const editInstructorSchema = Yup.object().shape({
+  fullName: Yup.string().required("Full name is required"),
+  userId: Yup.string().required("User UUID is required"),
+});
 
 const InstructorEditModalForm: FC<Props> = ({ instructorId, onClose }) => {
   const { refetch } = useQueryResponse();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Instructor>({
-    id: undefined,
-    name: "",
-    email: "",
-    password: "",
-    courseCount: 0,
-    enrollmentCount: 0,
-    roles: [],
-  });
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [roles, setRoles] = useState<Role[]>([]);
 
-  // Load instructor data
+  useEffect(() => {
+    getAllRoles().then(setRoles);
+  }, []);
+
+  const formik = useFormik({
+    initialValues: {
+      fullName: "",
+      userId: "",
+      bio: "",
+      roleIds: [] as string[],
+    },
+    validationSchema: editInstructorSchema,
+    onSubmit: async (values, { setSubmitting }) => {
+      setSubmitting(true);
+      try {
+        if (isNotEmpty(instructorId)) {
+          // Casting instructorId to ID ensures compatibility with the model
+          await updateInstructor({ id: instructorId as ID, ...values });
+        } else {
+          await createInstructor(values);
+        }
+        refetch();
+        onClose();
+      } catch (ex) {
+        console.error(ex);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+  });
+
   useEffect(() => {
     if (instructorId) {
-      setLoading(true);
-      getInstructorById(instructorId)
-        .then((instructor) => {
-          if (instructor) {
-            setFormData({
-              ...instructor,
-              roles: instructor.roles || [],
-            });
-          }
-        })
-        .catch((err) => console.error("Failed to load instructor:", err))
-        .finally(() => setLoading(false));
+      getInstructorById(instructorId).then((data) => {
+        if (data) {
+          formik.setValues({
+            fullName: data.fullName || "",
+            userId: data.userId || "",
+            bio: data.bio || "",
+            roleIds: data.roles?.map((r) => r.id) || [],
+          });
+        }
+      });
     }
   }, [instructorId]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      const updated = { ...errors };
-      delete updated[name];
-      setErrors(updated);
-    }
-  };
-
-  const toggleRole = (roleId: string) => {
-    setFormData((prev) => {
-      const newRoles = (prev.roles || []).includes(roleId)
-        ? (prev.roles || []).filter((r) => r !== roleId)
-        : [...(prev.roles || []), roleId];
-      return { ...prev, roles: newRoles };
-    });
-    if (errors.roles) {
-      const updated = { ...errors };
-      delete updated.roles;
-      setErrors(updated);
-    }
-  };
-
-  // const validateForm = (): boolean => {
-  //   const newErrors: { [key: string]: string } = {};
-  //   if (!formData.name.trim()) newErrors.name = "Name is required";
-  //   if (!formData.email.trim()) newErrors.email = "Email is required";
-  //   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-  //     newErrors.email = "Invalid email address";
-  //   if (!instructorId && !formData.password.trim())
-  //     newErrors.password = "Password is required";
-  //   else if (formData.password && formData.password.length < 6)
-  //     newErrors.password = "Password must be at least 6 characters";
-  //   if (!formData.roles || formData.roles.length === 0)
-  //     newErrors.roles = "Select at least one role";
-
-  //   setErrors(newErrors);
-  //   return Object.keys(newErrors).length === 0;
-  // };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // if (!validateForm()) return;
-
-    setLoading(true);
-    try {
-      const data = { ...formData };
-      if (instructorId) {
-        await updateInstructor(data);
-      } else {
-        await createInstructor(data);
-      }
-      await refetch();
-      alert(
-        instructorId
-          ? "Instructor updated successfully!"
-          : "Instructor created successfully!"
-      );
-      onClose();
-    } catch (error) {
-      console.error("Error saving instructor:", error);
-      alert("Failed to save instructor.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading && instructorId) {
-    return (
-      <div className="text-center py-5">
-        <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-        <span className="ms-2">Loading...</span>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="form">
-      {/* --- Basic Info --- */}
-      <div className="mb-7">
-        <h3 className="fw-bold text-dark mb-5">Instructor Details</h3>
-
-        <div className="fv-row mb-5">
-          <label className="required fw-semibold fs-6 mb-2">Full Name</label>
+    <form className="form" onSubmit={formik.handleSubmit} noValidate>
+      <div className="d-flex flex-column scroll-y me-n7 pe-7">
+        <div className="fv-row mb-7">
+          <label className="required fw-bold fs-6 mb-2">Full Name</label>
           <input
+            {...formik.getFieldProps("fullName")}
             type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            className={clsx("form-control form-control-solid", {
-              "is-invalid": errors.name,
-            })}
-            placeholder="Enter full name"
+            className="form-control form-control-solid"
           />
-          {errors.name && <div className="invalid-feedback">{errors.name}</div>}
         </div>
 
-        <div className="fv-row mb-5">
-          <label className="required fw-semibold fs-6 mb-2">Email</label>
+        <div className="fv-row mb-7">
+          <label className="required fw-bold fs-6 mb-2">User UUID</label>
           <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            className={clsx("form-control form-control-solid", {
-              "is-invalid": errors.email,
-            })}
-            placeholder="example@domain.com"
+            {...formik.getFieldProps("userId")}
+            disabled={isNotEmpty(instructorId)}
+            className="form-control form-control-solid"
           />
-          {errors.email && (
-            <div className="invalid-feedback">{errors.email}</div>
-          )}
         </div>
 
-        <div className="fv-row mb-5">
-          <label
-            className={clsx("fw-semibold fs-6 mb-2", {
-              required: !instructorId,
-            })}
-          >
-            Password{" "}
-            {instructorId && (
-              <span className="text-muted">(leave blank to keep current)</span>
-            )}
-          </label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            className={clsx("form-control form-control-solid", {
-              "is-invalid": errors.password,
-            })}
-            placeholder={
-              instructorId ? "Enter new password (optional)" : "Enter password"
-            }
+        <div className="fv-row mb-7">
+          <label className="fw-bold fs-6 mb-2">Bio</label>
+          <textarea
+            {...formik.getFieldProps("bio")}
+            className="form-control form-control-solid"
           />
-          {errors.password && (
-            <div className="invalid-feedback">{errors.password}</div>
-          )}
-        </div>
-      </div>
-
-      {/* --- Roles Selection --- */}
-      <div className="mb-7">
-        <div className="d-flex align-items-center justify-content-between mb-5">
-          <h3 className="fw-bold text-dark mb-0">Assign Roles</h3>
         </div>
 
-        <div className="row">
-          {ROLES.map((role) => (
-            <div key={role.id} className="col-md-6 mb-3">
-              <div className="form-check form-check-custom form-check-solid">
+        <div className="fv-row mb-7">
+          <label className="fw-bold fs-6 mb-2">Roles</label>
+          <div className="d-flex flex-wrap gap-5 mt-2">
+            {roles.map((role) => (
+              <div
+                key={role.id}
+                className="form-check form-check-custom form-check-solid"
+              >
                 <input
                   className="form-check-input"
                   type="checkbox"
-                  id={role.id}
-                  checked={(formData.roles || []).includes(role.id)}
-                  onChange={() => toggleRole(role.id)}
+                  checked={formik.values.roleIds.includes(role.id)}
+                  onChange={() => {
+                    const current = [...formik.values.roleIds];
+                    if (current.includes(role.id)) {
+                      formik.setFieldValue(
+                        "roleIds",
+                        current.filter((i) => i !== role.id)
+                      );
+                    } else {
+                      formik.setFieldValue("roleIds", [...current, role.id]);
+                    }
+                  }}
                 />
-                <label className="form-check-label" htmlFor={role.id}>
-                  <strong>{role.label}</strong>
-                  <div className="text-muted small">{role.description}</div>
-                </label>
+                <label className="form-check-label">{role.name}</label>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        {errors.roles && (
-          <div className="text-danger mt-2 small">{errors.roles}</div>
-        )}
       </div>
 
-      {/* --- Actions --- */}
-      <div className="text-end">
-        <button
-          type="button"
-          className="btn btn-light me-3"
-          onClick={onClose}
-          disabled={loading}
-        >
+      <div className="text-center pt-15">
+        <button type="reset" onClick={onClose} className="btn btn-light me-3">
           Cancel
         </button>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {!loading &&
-            (instructorId ? "Update Instructor" : "Create Instructor")}
-          {loading && (
-            <span className="indicator-progress">
-              Please wait...
-              <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-            </span>
-          )}
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={formik.isSubmitting}
+        >
+          Submit
         </button>
       </div>
     </form>

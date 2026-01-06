@@ -1,158 +1,72 @@
-import axios, { AxiosResponse } from "axios";
-import { ID, Response } from "../../../../../../_metronic/helpers";
-import { Instructor, InstructorsQueryResponse } from "./_models";
+import axios from "axios";
+import { ID } from "../../../../../../_metronic/helpers";
+import { Instructor, InstructorsQueryResponse, Role } from "./_models";
 
-const API_URL = import.meta.env.VITE_APP_THEME_API_URL;
-const INSTRUCTOR_URL = `${API_URL}/instructor`;
-const GET_INSTRUCTORS_URL = `${API_URL}/instructors/query`;
+const API_URL = "https://mypadminapi.bitmyanmar.info/api";
+const INSTRUCTOR_URL = `${API_URL}/instructors`;
 
-// Mock data - mutable so we can add/edit/delete
-let mockInstructors: Instructor[] = [
-  {
-    id: "INS001" as unknown as ID,
-    name: "Dr. Sarah Johnson",
-    email: "sarah.johnson@university.edu",
-    password: "hashed_password",
-    courseCount: 5,
-    enrollmentCount: 234,
-    lastLogin: "2025-10-18T09:30:00",
-  },
-  {
-    id: "INS002" as unknown as ID,
-    name: "Prof. Michael Chen",
-    email: "m.chen@university.edu",
-    password: "hashed_password",
-    courseCount: 8,
-    enrollmentCount: 456,
-    lastLogin: "2025-10-18T08:15:00",
-  },
-  {
-    id: "INS003" as unknown as ID,
-    name: "Dr. Emily Rodriguez",
-    email: "emily.r@university.edu",
-    password: "hashed_password",
-    courseCount: 3,
-    enrollmentCount: 145,
-    lastLogin: "2025-10-17T16:45:00",
-  },
-];
+// 1. Fetch all with pagination support for Metronic
+const getInstructors = async (
+  query: string
+): Promise<InstructorsQueryResponse> => {
+  const response = await axios.get(`${INSTRUCTOR_URL}?${query}`);
 
-const getInstructors = (query: string): Promise<InstructorsQueryResponse> => {
-  console.log("🔥 getInstructors - total:", mockInstructors.length);
+  // Metronic expects a specific Response format.
+  // If your API returns a simple array, we wrap it:
+  const data = Array.isArray(response.data)
+    ? response.data
+    : response.data.data;
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        data: [...mockInstructors],
-        payload: {
-          pagination: {
-            page: 1,
-            items_per_page: 10,
-            links: [
-              {
-                label: "&laquo; Previous",
-                page: null,
-                active: false,
-                url: null,
-              },
-              { label: "1", page: 1, active: true, url: null },
-              { label: "Next &raquo;", page: null, active: false, url: null },
-            ],
-          },
-        },
-      } as InstructorsQueryResponse);
-    }, 500);
-  });
+  return {
+    data: data,
+    payload: {
+      pagination: {
+        page: 1,
+        items_per_page: 100, // Adjust based on your backend logic
+        links: [],
+      },
+    },
+  } as InstructorsQueryResponse;
 };
 
-const getInstructorById = (id: ID): Promise<Instructor | undefined> => {
-  console.log("🔥 getInstructorById:", id);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const instructor = mockInstructors.find((inst) => inst.id === id);
-      resolve(instructor);
-    }, 300);
-  });
+// 2. Get Single
+const getInstructorById = async (id: ID): Promise<Instructor | undefined> => {
+  const response = await axios.get(`${INSTRUCTOR_URL}/${id}`);
+  return response.data;
 };
 
-const createInstructor = (
+// 3. Create
+const createInstructor = async (
   instructor: Instructor
 ): Promise<Instructor | undefined> => {
-  console.log("🔥 createInstructor:", instructor);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newInstructor = {
-        ...instructor,
-        id: `INS${String(mockInstructors.length + 1).padStart(
-          3,
-          "0"
-        )}` as unknown as ID,
-        courseCount: 0,
-        enrollmentCount: 0,
-        lastLogin: new Date().toISOString(),
-      };
-      mockInstructors.push(newInstructor);
-      console.log("✅ Created! Total now:", mockInstructors.length);
-      resolve(newInstructor);
-    }, 500);
-  });
+  // Payload: { userId, fullName, bio, roleIds }
+  const response = await axios.post(INSTRUCTOR_URL, instructor);
+  return response.data;
+};
+const getAllRoles = async (): Promise<Role[]> => {
+  const response = await axios.get(`${API_URL}/roles`);
+  return response.data;
 };
 
-const updateInstructor = (
+// 4. Update
+const updateInstructor = async (
   instructor: Instructor
 ): Promise<Instructor | undefined> => {
-  console.log("🔥 updateInstructor:", instructor);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const index = mockInstructors.findIndex(
-        (inst) => inst.id === instructor.id
-      );
-      if (index !== -1) {
-        mockInstructors[index] = { ...mockInstructors[index], ...instructor };
-        resolve(mockInstructors[index]);
-      } else {
-        resolve(undefined);
-      }
-    }, 500);
-  });
+  const { id, ...payload } = instructor;
+  const response = await axios.patch(`${INSTRUCTOR_URL}/${id}`, payload);
+  return response.data;
 };
 
-const deleteInstructor = (instructorId: ID): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const index = mockInstructors.findIndex(
-        (inst) => inst.id === instructorId
-      );
-      if (index !== -1) {
-        mockInstructors.splice(index, 1);
-      }
-      resolve();
-    }, 500);
-  });
-};
-
-const deleteSelectedInstructors = (instructorIds: Array<ID>): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      instructorIds.forEach((id) => {
-        const index = mockInstructors.findIndex((inst) => inst.id === id);
-        if (index !== -1) {
-          mockInstructors.splice(index, 1);
-        }
-      });
-      resolve();
-    }, 500);
-  });
+// 5. Delete
+const deleteInstructor = async (instructorId: ID): Promise<void> => {
+  await axios.delete(`${INSTRUCTOR_URL}/${instructorId}`);
 };
 
 export {
   getInstructors,
   deleteInstructor,
-  deleteSelectedInstructors,
   getInstructorById,
+  getAllRoles,
   createInstructor,
   updateInstructor,
 };
