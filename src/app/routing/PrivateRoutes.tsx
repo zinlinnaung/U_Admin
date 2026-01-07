@@ -123,7 +123,7 @@ const PrivateRoutes = () => {
               path="apps/course/activity"
               element={
                 <SuspensedView>
-                  <FeedbackList />
+                  <EditActivity />
                 </SuspensedView>
               }
             />
@@ -210,6 +210,15 @@ const PrivateRoutes = () => {
               element={
                 <SuspensedView>
                   <CourseCategoryPage />
+                </SuspensedView>
+              }
+            />
+
+            <Route
+              path="apps/course/activity"
+              element={
+                <SuspensedView>
+                  <EditActivity />
                 </SuspensedView>
               }
             />
