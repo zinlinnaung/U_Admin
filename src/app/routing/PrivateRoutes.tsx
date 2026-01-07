@@ -119,6 +119,14 @@ const PrivateRoutes = () => {
                 </SuspensedView>
               }
             />
+            <Route
+              path="apps/course/activity"
+              element={
+                <SuspensedView>
+                  <FeedbackList />
+                </SuspensedView>
+              }
+            />
 
             <Route
               path="apps/user-on-course"
