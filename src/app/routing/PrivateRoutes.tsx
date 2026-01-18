@@ -19,6 +19,9 @@ import CertificateList from "../modules/apps/certificate/CertiicateList";
 import { useAuth } from "../modules/auth";
 import FeedbackList from "../modules/apps/courses/FeedbackList";
 import UserOnCourseList from "../modules/apps/courses/UserOnCourseList";
+import CertificateEditor from "../modules/apps/certificate/CertificateEditor2";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 
 const PrivateRoutes = () => {
   const { currentUser } = useAuth();
@@ -141,6 +144,17 @@ const PrivateRoutes = () => {
               element={
                 <SuspensedView>
                   <CertificateList />
+                </SuspensedView>
+              }
+            />
+
+            <Route
+              path="apps/certificate"
+              element={
+                <SuspensedView>
+                  <DndProvider backend={HTML5Backend}>
+                    <CertificateEditor />
+                  </DndProvider>
                 </SuspensedView>
               }
             />
